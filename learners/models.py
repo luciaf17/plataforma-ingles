@@ -110,7 +110,9 @@ class LearnerGrammarTopic(models.Model):
     learner = models.ForeignKey(Learner, on_delete=models.CASCADE, related_name="grammar_progress")
     topic = models.ForeignKey(GrammarTopic, on_delete=models.CASCADE, related_name="learner_progress")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.NOT_STARTED)
-    # `introduced_in` (FK to lessons.Lesson) is added in the lessons module, which owns that model.
+    introduced_in = models.ForeignKey(
+        "lessons.Lesson", null=True, blank=True, on_delete=models.SET_NULL, related_name="introduced_grammar_topics"
+    )
     times_targeted = models.PositiveIntegerField(default=0)
     times_avoided = models.PositiveIntegerField(default=0)
 

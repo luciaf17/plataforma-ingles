@@ -59,7 +59,7 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 |---|---|---|
 | 1 | `core` | done |
 | 2 | `learners` | done |
-| 3 | `lessons` models | pending |
+| 3 | `lessons` models | done |
 | 4 | `ai/client.py` | pending |
 | 5 | `ai/analyzer.py` | pending |
 | 6 | `lessons/postprocess.py` | pending |
