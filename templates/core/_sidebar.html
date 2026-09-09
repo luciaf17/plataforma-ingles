@@ -1,0 +1,51 @@
+<aside class="side" id="side">
+  <div class="brand"><b>tutor-en</b><span>your English file</span></div>
+
+  <div class="nav-group">
+    <a class="nav {% if section == 'today' %}active{% endif %}" href="{% url 'core:today' %}">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Today
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <h6>Practice</h6>
+    <a class="nav {% if section == 'speaking' %}active{% endif %}" href="{% url 'core:speaking' %}">
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Speaking
+    </a>
+    <a class="nav {% if section == 'listening' %}active{% endif %}" href="{% url 'core:listening' %}">
+      <svg viewBox="0 0 24 24"><path d="M3 14v-3a9 9 0 0 1 18 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/></svg>Listening
+    </a>
+    <a class="nav {% if section == 'reading' %}active{% endif %}" href="{% url 'core:reading' %}">
+      <svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H4zM20 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg>Reading
+    </a>
+    <a class="nav {% if section == 'writing' %}active{% endif %}" href="{% url 'core:writing' %}">
+      <svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/></svg>Writing
+    </a>
+  </div>
+
+  <div class="nav-group">
+    <h6>Your English</h6>
+    <a class="nav {% if section == 'grammar' %}active{% endif %}" href="{% url 'core:grammar' %}">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg>Grammar
+    </a>
+    <a class="nav {% if section == 'vocabulary' %}active{% endif %}" href="{% url 'core:vocabulary' %}">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM8 8h8M8 12h5"/></svg>Vocabulary
+    </a>
+    <a class="nav {% if section == 'errors' %}active{% endif %}" href="{% url 'core:errors' %}">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>My errors{% if due_errors_count %}<span class="count">{{ due_errors_count }} due</span>{% endif %}
+    </a>
+    <a class="nav {% if section == 'progress' %}active{% endif %}" href="{% url 'core:progress' %}">
+      <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Progress
+    </a>
+  </div>
+
+  <div class="side-foot">
+    {% block sidebar_footer %}
+      {% if user.is_authenticated %}
+        <b>{{ user.get_short_name|default:user.username }}</b>Your file is empty for now.
+      {% else %}
+        <b>Not signed in</b><a href="{% url 'admin:login' %}?next=/">Sign in</a>
+      {% endif %}
+    {% endblock %}
+  </div>
+</aside>

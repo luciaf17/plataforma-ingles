@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>{{ title }}</h1><p>Your lesson for today will show up here once the planner is in place.</p></div>
+</div>
+
+<div class="grid g2">
+  <div class="card today">
+    <div class="kicker">Today's lesson</div>
+    <h2>Nothing prepared yet</h2>
+    <div class="meta">The planner runs before you open the app. It's not built yet.</div>
+  </div>
+
+  <div class="flex flex-col gap-4">
+    <div class="card">
+      <h3>Streak</h3>
+      <div class="streak"><b>0</b><span>days in a row</span></div>
+    </div>
+    <div class="card">
+      <h3>Level by skill</h3>
+      <div class="empty">No placement yet.</div>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <h3>Recent lessons</h3>
+  <div class="empty">No lessons yet.</div>
+</div>
+{% endblock %}

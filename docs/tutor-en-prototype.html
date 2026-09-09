@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tutor-en — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=Etw5uPmOqjTbRcy46lm4ZnARj9PaGGf-kWDPDb8AsNdtJ1EI9bjB27qSIimraYJAI6zUoweh3HIOUGsrRQpRlE3YC_DgtN28dc-V2PSXuQxcnkHp8ci9031MKFsyYqzUyi42HJ7er8Xw-Vl1ELthlhQjX-uqvT5aWo18Q9Cor6OxiFfBWD1kfUbTSPJD6uNj-gsvSNgNqtVSI9r1aRukJY2d2aWJ2dFxrWDsafPCKOL9scLoVYwTyeF7CwPyE430VSZTKC4TBOOqSK-mYiiJKIi49KM-oXgiuNsTatMwGbkmk1HiAlRSPTntWwLK_MXidR8rtmCzVWOqqxrr7h0_n2-hxREF34zB9fUAaZrM4q5NQqFk_UHnzTBtaMubkl_TvLq4ZKW-NnnjCQNvrsY8iYVIF7OQJpuBY0zI4IY45e7YYyeVBvJ-QieQcNRve-x87vyY9hA-3EvlU_rMrWczPtKLsJyEGwzVP6xDXZuH8_VV80yuevBsNX1rd5bv1woA9GXUu-Tg6f2bYFnFQ6PMlbAom0oX0VghPGpxDk2QB3GrNKR9_zgESwuaJDhrpBvF9cXuqaWRUYESEUvUawpHwMpg13SDJlNDbwjx8uS1zeW12rj23n70t_X1QK6fPjP4eccbRX9AYeYRbwIxZO1o68TuqQro9cqqqcTw1-A72JEXx2_lkV7mMAtQj_bb2pqkz5v2oAnDOVLgpOukI7JdkrWE1Khfnc7oHor5FxnMWCs4phs4QHXUYauwsVgH22oTZQ9qAQnWFoAWCpc4EsXD9Ok13AwfdrjsZTa8ee2VsfcyYcF6lY0pzSO9nhJ1m3JjZDprzzmUhNzsw1dUrJHdto7OUbKLzfTnbQ0HYkkPrRjNucQWc0EYiRMmSvEV5GCwQNpWxPM-BlsF9jk0PzeA2lr6v5I-Cizhh4GKHPvXMnSCpcalxAU96f2SZvd5tCXSy9MH4oStruu_7c_78BqO55sJ1hIG_CfIpOnVQwKMDkRNUgrdJOq4pSPVkLZo8nNRuwxOwc-EcuiZnHE-4XB0oawxx57GZUO7jYSJP12go_VzrWhmol09w0ss9_b8tWRZJI2Ez-m9SPs-qML3ioE5DKs8AHHW6SO5tA57JRbGWqAdhmnn-XOOk8kaY4naZuaBHkux-MgL7ivKtMkEqpYcPRr6n7_MFXXakfs1q1mEs-pdHScDshmOymr5r4MHRPwNS2mlSa8vinArjcrky8PsooVNpNP5tAAL1GHAj0ExkMC9UoNPl61QZsf-Nqn8DKU3Z_eq0xj7tXcvUan1QQidGCBxb44nlk7gasta4GP6g-xDQPCiuW1muLXum9CuoxT3KKkP9amptXLpYafU_c3BfpFvIeRLuaYnbeanu4b2np5pZlvZ-Fz3GehAfJVkJPhgDiZiGVkwgwz1ugtEZo2JS3Jg_2d7Zr9h0TQOurwcvVQjlKGyUUEX5vdGktmTwW1npvtaI0sX-8AnFHHxjBx2rToMxGfcy3ubx9s9t3gaW9QvuJ5A0k2ep0zQKZeVqil80l1MgcGnEIgOsk_WAFlIiO_mVAXMT6r-DW4PlPWflBM3kmnpocdocN_SYPrytIqIFby3wiGo_gW6pEOAtuZ-UkHWQemW-xCHywo4bPjwrxNWeKkz66F-qnnPhlVNRFk2M3jznptE_X-x_ANX4ORfzg" nonce="7a85b79fbbd33d75b6e79f820807b221" charset="UTF-8"></script><style>
+  :root{
+    --bg:#1a1e27; --panel:#222733; --panel-2:#2a3040; --line:#343b4b;
+    --ink:#ece9e2; --ink-2:#a9aeb9; --ink-3:#6f7583;
+    --amber:#e5b35a; --amber-soft:rgba(229,179,90,.14);
+    --green:#86b892; --green-soft:rgba(134,184,146,.14);
+    --red:#e2806f; --red-soft:rgba(226,128,111,.14);
+    --blue:#8db4d8;
+    --sans:"Public Sans",system-ui,-apple-system,sans-serif;
+    --serif:"Newsreader",Georgia,"Times New Roman",serif;
+    --r:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  a{color:inherit;text-decoration:none}
+
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+
+  /* Sidebar */
+  .side{background:var(--panel);border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}
+  .brand{display:flex;align-items:baseline;gap:8px;padding:0 8px}
+  .brand b{font-family:var(--serif);font-size:22px;font-weight:500;letter-spacing:-.01em}
+  .brand span{color:var(--ink-3);font-size:12px}
+  .nav-group{display:flex;flex-direction:column;gap:2px}
+  .nav-group h6{font-size:12px;font-weight:500;color:var(--ink-3);padding:0 8px 8px;letter-spacing:.01em}
+  .nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r);color:var(--ink-2);text-align:left;width:100%}
+  .nav:hover{background:var(--panel-2);color:var(--ink)}
+  .nav.active{background:var(--panel-2);color:var(--ink)}
+  .nav svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .nav .count{margin-left:auto;font-size:12px;color:var(--amber);background:var(--amber-soft);padding:1px 7px;border-radius:99px}
+  .side-foot{margin-top:auto;padding:12px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-3)}
+  .side-foot b{color:var(--ink-2);font-weight:500;display:block}
+
+  /* Main */
+  .main{padding:32px 40px 60px;max-width:1120px;width:100%}
+  .view{display:none}.view.on{display:block}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:26px}
+  .head h1{font-family:var(--serif);font-weight:500;font-size:30px;letter-spacing:-.01em;line-height:1.1}
+  .head p{color:var(--ink-2);margin-top:6px}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:var(--r);border:1px solid var(--line);color:var(--ink);background:var(--panel)}
+  .btn:hover{background:var(--panel-2)}
+  .btn.primary{background:var(--amber);color:#1a1509;border-color:var(--amber);font-weight:600}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn.ghost{border-color:transparent;color:var(--ink-2)}
+
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1.4fr 1fr}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+  .card h3{font-size:14px;font-weight:600;margin-bottom:12px}
+  .card h3 small{font-weight:400;color:var(--ink-3);margin-left:8px}
+
+  /* Today hero */
+  .today{background:linear-gradient(160deg,#262c3a,#1f2430);border-color:#3a4256;padding:26px 28px}
+  .today .kicker{color:var(--amber);font-size:13px;margin-bottom:8px}
+  .today h2{font-family:var(--serif);font-weight:500;font-size:26px;line-height:1.15;margin-bottom:6px}
+  .today .meta{color:var(--ink-2);margin-bottom:20px}
+  .targets{border-top:1px solid var(--line);padding-top:16px;margin-bottom:22px}
+  .targets p{font-size:13px;color:var(--ink-2);margin-bottom:10px}
+  .target{display:flex;gap:12px;align-items:flex-start;padding:8px 0;border-bottom:1px dashed var(--line)}
+  .target:last-child{border:0}
+  .target .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);margin-top:7px;flex:none}
+  .target .wrong{font-family:var(--serif);font-size:16px;color:var(--ink-2);text-decoration:line-through;text-decoration-color:var(--red)}
+  .target .right{font-family:var(--serif);font-size:16px}
+  .target .n{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap;padding-top:4px}
+
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:99px;font-size:12px;border:1px solid var(--line);color:var(--ink-2)}
+  .pill.amber{color:var(--amber);border-color:transparent;background:var(--amber-soft)}
+  .pill.green{color:var(--green);border-color:transparent;background:var(--green-soft)}
+  .pill.red{color:var(--red);border-color:transparent;background:var(--red-soft)}
+
+  .skills{display:flex;flex-direction:column;gap:12px}
+  .skill{display:grid;grid-template-columns:78px 1fr 44px;align-items:center;gap:12px;font-size:13px}
+  .skill .lvl{text-align:right;color:var(--ink-2)}
+  .bar{height:6px;background:var(--panel-2);border-radius:99px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--green);border-radius:99px}
+  .bar i.a{background:var(--amber)}
+
+  .streak{display:flex;align-items:baseline;gap:10px}
+  .streak b{font-family:var(--serif);font-size:44px;font-weight:500;line-height:1}
+  .streak span{color:var(--ink-2)}
+  .days{display:flex;gap:5px;margin-top:14px}
+  .days i{flex:1;height:22px;border-radius:4px;background:var(--panel-2)}
+  .days i.d{background:var(--green)}
+  .days i.h{background:var(--amber)}
+
+  .list{display:flex;flex-direction:column}
+  .row{display:grid;grid-template-columns:90px 1fr auto;gap:14px;padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+  .row:last-child{border:0}
+  .row .when{color:var(--ink-3);font-size:13px}
+  .row .what b{font-weight:500}
+  .row .what span{color:var(--ink-2);font-size:13px;display:block}
+  .row .res{font-size:13px;color:var(--green)}
+
+  /* Speaking */
+  .lesson{display:grid;grid-template-columns:1fr 300px;gap:16px;min-height:560px}
+  .stage{display:flex;flex-direction:column}
+  .stage-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .timer{font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  .transcript{flex:1;display:flex;flex-direction:column;gap:16px;padding:8px 4px;overflow:auto}
+  .msg{max-width:78%;font-family:var(--serif);font-size:18px;line-height:1.45}
+  .msg.tutor{align-self:flex-start}
+  .msg.tutor::before{content:"Tutor";display:block;font-family:var(--sans);font-size:11px;color:var(--ink-3);margin-bottom:4px}
+  .msg.you{align-self:flex-end;color:var(--ink-2);text-align:right}
+  .msg.you::before{content:"You";display:block;font-family:var(--sans);font-size:11px;color:var(--ink-3);margin-bottom:4px}
+  .msg .recast{color:var(--green);font-style:italic}
+  .mic-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 0 8px;border-top:1px solid var(--line);margin-top:16px}
+  .mic{width:76px;height:76px;border-radius:50%;background:var(--amber);color:#1a1509;display:grid;place-items:center;box-shadow:0 0 0 10px var(--amber-soft)}
+  .mic svg{width:28px;height:28px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round}
+  .mic-wrap small{color:var(--ink-3)}
+  .aside .card{margin-bottom:16px}
+  .plan li{list-style:none;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;display:flex;justify-content:space-between;gap:8px}
+  .plan li:last-child{border:0}
+  .plan li.done{color:var(--ink-3)}
+  .plan li.now{color:var(--amber)}
+  .hint{font-family:var(--serif);font-size:15px;color:var(--ink-2);line-height:1.4}
+  .hint b{color:var(--ink);font-weight:500}
+
+  /* Grammar */
+  .gram{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  .gcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+  .gcard header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .gcard h4{font-size:15px;font-weight:600}
+  .gcard p{font-size:13px;color:var(--ink-2)}
+  .gcard .ex{font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:10px 12px;background:var(--bg);border-radius:6px;border-left:2px solid var(--line)}
+  .gcard .ex s{text-decoration-color:var(--red)}
+  .gcard .ex em{color:var(--green);font-style:normal}
+  .gcard footer{display:flex;align-items:center;gap:10px;margin-top:auto}
+  .gcard footer .bar{flex:1}
+  .gcard footer small{color:var(--ink-3);white-space:nowrap}
+  .gcard.mastered{opacity:.6}
+  .filters{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .filters .pill{cursor:pointer}
+  .filters .pill.on{background:var(--panel-2);color:var(--ink)}
+
+  /* Errors table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;font-weight:500;color:var(--ink-3);padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  tr:last-child td{border:0}
+  td.q{font-family:var(--serif);font-size:15px}
+  td.q s{color:var(--ink-2);text-decoration-color:var(--red)}
+  td.q div{margin-top:2px}
+  td.q div span{color:var(--ink-3);font-family:var(--sans);font-size:12px;display:block;margin-top:3px}
+  .box{display:inline-flex;gap:3px}
+  .box i{width:9px;height:9px;border-radius:2px;background:var(--panel-2)}
+  .box i.f{background:var(--green)}
+  td .act{color:var(--ink-3)}
+  td .act:hover{color:var(--ink)}
+
+  /* Vocab */
+  .vocab{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .vcard{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .vcard b{font-family:var(--serif);font-size:19px;font-weight:500;display:block}
+  .vcard p{font-size:13px;color:var(--ink-2);margin:4px 0 10px}
+  .vcard q{font-family:var(--serif);font-size:14px;color:var(--ink-3);quotes:none;display:block;margin-bottom:10px;font-style:italic}
+
+  /* Progress */
+  .stat b{font-family:var(--serif);font-size:34px;font-weight:500;display:block;line-height:1}
+  .stat span{color:var(--ink-2);font-size:13px}
+  .chart{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:14px}
+  .chart i{flex:1;background:var(--panel-2);border-radius:3px 3px 0 0;position:relative}
+  .chart i.g{background:var(--green)}
+  .chart-x{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-top:6px}
+  .empty{color:var(--ink-2);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+
+  /* Mobile */
+  .topbar{display:none}
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr}
+    .side{position:fixed;inset:0 auto 0 0;width:260px;z-index:20;transform:translateX(-100%);transition:transform .2s}
+    .side.open{transform:none}
+    .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:10}
+    .scrim.on{display:block}
+    .topbar{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+    .topbar b{font-family:var(--serif);font-size:19px;font-weight:500}
+    .main{padding:20px 16px 50px}
+    .g2,.g3,.gram,.vocab,.lesson{grid-template-columns:1fr}
+    .head{flex-direction:column;align-items:flex-start}
+    .head h1{font-size:26px}
+    .msg{max-width:92%}
+    .row{grid-template-columns:70px 1fr}
+    .row .res{grid-column:2}
+    th:nth-child(3),td:nth-child(3){display:none}
+  }
+  @media (prefers-reduced-motion:reduce){.side{transition:none}}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="scrim" id="scrim" onclick="toggleSide(false)"></div>
+<div class="app">
+
+  <aside class="side" id="side">
+    <div class="brand"><b>tutor-en</b><span>your English file</span></div>
+
+    <div class="nav-group">
+      <button class="nav active" data-v="today" onclick="go('today')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Today
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <h6>Practice</h6>
+      <button class="nav" data-v="speaking" onclick="go('speaking')">
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Speaking
+      </button>
+      <button class="nav" data-v="listening" onclick="go('listening')">
+        <svg viewBox="0 0 24 24"><path d="M3 14v-3a9 9 0 0 1 18 0v3"/><rect x="3" y="14" width="4" height="6" rx="1"/><rect x="17" y="14" width="4" height="6" rx="1"/></svg>Listening
+      </button>
+      <button class="nav" data-v="reading" onclick="go('reading')">
+        <svg viewBox="0 0 24 24"><path d="M4 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H4zM20 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z"/></svg>Reading
+      </button>
+      <button class="nav" data-v="writing" onclick="go('writing')">
+        <svg viewBox="0 0 24 24"><path d="M4 20h4l10-10-4-4L4 16zM13 7l4 4"/></svg>Writing
+      </button>
+    </div>
+
+    <div class="nav-group">
+      <h6>Your English</h6>
+      <button class="nav" data-v="grammar" onclick="go('grammar')">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h13"/></svg>Grammar
+      </button>
+      <button class="nav" data-v="vocab" onclick="go('vocab')">
+        <svg viewBox="0 0 24 24"><path d="M4 19V5a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1zM8 8h8M8 12h5"/></svg>Vocabulary
+      </button>
+      <button class="nav" data-v="errors" onclick="go('errors')">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>My errors<span class="count">7 due</span>
+      </button>
+      <button class="nav" data-v="progress" onclick="go('progress')">
+        <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>Progress
+      </button>
+    </div>
+
+    <div class="side-foot"><b>Lu</b>Speaking B1+ · Goal: technical interviews</div>
+  </aside>
+
+  <div>
+    <div class="topbar">
+      <button onclick="toggleSide(true)" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <b>tutor-en</b>
+    </div>
+
+    <main class="main">
+
+      <!-- TODAY -->
+      <section class="view on" id="v-today">
+        <div class="head">
+          <div><h1>Wednesday, September 9</h1><p>Day 12. Yesterday you avoided two of your three targeted errors.</p></div>
+          <button class="btn ghost" onclick="go('speaking')">Surprise me</button>
+        </div>
+
+        <div class="grid g2">
+          <div class="card today">
+            <div class="kicker">Today's lesson</div>
+            <h2>Walking an interviewer through AutomatizaApp's architecture</h2>
+            <div class="meta">Speaking · Work track · 20 min</div>
+            <div class="targets">
+              <p>This lesson targets three errors from your file</p>
+              <div class="target"><i class="dot"></i><div><span class="wrong">I work here since 2021</span><br><span class="right">I've been working here since 2021</span></div><span class="n">4 times</span></div>
+              <div class="target"><i class="dot"></i><div><span class="wrong">it depends of the client</span><br><span class="right">it depends on the client</span></div><span class="n">3 times</span></div>
+              <div class="target"><i class="dot"></i><div><span class="wrong">the data is processed by a queue</span><br><span class="right">a queue processes the data</span></div><span class="n">passive overuse · 2 times</span></div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn primary" onclick="go('speaking')">Start lesson</button>
+              <button class="btn">Change skill or topic</button>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div class="card">
+              <h3>Streak</h3>
+              <div class="streak"><b>12</b><span>days in a row</span></div>
+              <div class="days"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="h"></i><i></i></div>
+            </div>
+            <div class="card">
+              <h3>Level by skill</h3>
+              <div class="skills">
+                <div class="skill"><span>Speaking</span><div class="bar"><i class="a" style="width:46%"></i></div><span class="lvl">B1+</span></div>
+                <div class="skill"><span>Listening</span><div class="bar"><i style="width:62%"></i></div><span class="lvl">B2</span></div>
+                <div class="skill"><span>Reading</span><div class="bar"><i style="width:74%"></i></div><span class="lvl">B2+</span></div>
+                <div class="skill"><span>Writing</span><div class="bar"><i style="width:58%"></i></div><span class="lvl">B2</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <h3>Recent lessons</h3>
+          <div class="list">
+            <div class="row"><span class="when">Yesterday</span><div class="what"><b>Reply to a tech lead's code review</b><span>Writing · Work · 15 min</span></div><span class="res">2 of 3 avoided · 1 new</span></div>
+            <div class="row"><span class="when">Mon 7</span><div class="what"><b>Podcast: why on-call rotations fail</b><span>Listening · Work · 20 min</span></div><span class="res">5 of 6 correct</span></div>
+            <div class="row"><span class="when">Sun 6</span><div class="what"><b>A weekend in Córdoba, told to a colleague</b><span>Speaking · General · 20 min</span></div><span class="res">1 of 3 avoided · 3 new</span></div>
+            <div class="row"><span class="when">Sat 5</span><div class="what"><b>GitHub issue: flaky test in CI</b><span>Reading · Work · 10 min</span></div><span class="res">6 of 6 correct</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPEAKING -->
+      <section class="view" id="v-speaking">
+        <div class="head">
+          <div><h1>Walking an interviewer through AutomatizaApp's architecture</h1><p>Speaking · Work track · Tutor voice: Sage</p></div>
+          <button class="btn">End lesson</button>
+        </div>
+        <div class="lesson">
+          <div class="card stage">
+            <div class="stage-top"><span class="pill amber">Conversation</span><span class="timer">08:42 / 20:00</span></div>
+            <div class="transcript">
+              <div class="msg tutor">Nice. So the pricing engine is deterministic and the LLM only touches the edges. When did you make that call, and what pushed you toward it?</div>
+              <div class="msg you">I am working on this since the beginning of the year, more or less. We decide it because the client don't trust… eh, didn't trust the numbers if the AI touch the price.</div>
+              <div class="msg tutor">That makes total sense. <span class="recast">So you've been working on it since January</span>, and the trust issue drove the design. Was that a decision you made alone, or did Eze have a say in it?</div>
+              <div class="msg you">Both. Eze know the industry, so he tell me what the client will accept and what not.</div>
+              <div class="msg tutor">Got it. Let's say I'm the CTO interviewing you. Give me the thirty-second version of how a WhatsApp message becomes a quote.</div>
+            </div>
+            <div class="mic-wrap">
+              <button class="mic" aria-label="Hold to talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+              <small>Hold to talk · release to send</small>
+            </div>
+          </div>
+          <div class="aside">
+            <div class="card">
+              <h3>Lesson plan</h3>
+              <ul class="plan">
+                <li class="done"><span>Warm-up: your week</span><span>3 min</span></li>
+                <li class="now"><span>Architecture walkthrough</span><span>10 min</span></li>
+                <li><span>Tough interviewer questions</span><span>5 min</span></li>
+                <li><span>Quick drill on targeted errors</span><span>2 min</span></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Targeted today</h3>
+              <ul class="plan">
+                <li><span>since + present perfect</span><span class="pill red">missed</span></li>
+                <li><span>depends on</span><span class="pill">pending</span></li>
+                <li><span>active voice</span><span class="pill green">avoided</span></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>If you get stuck</h3>
+              <p class="hint">Try: <b>"The way it works is…"</b> or <b>"Under the hood…"</b>. Don't translate, describe.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LISTENING / READING / WRITING (picker state) -->
+      <section class="view" id="v-listening">
+        <div class="head"><div><h1>Listening</h1><p>Two listens max. You'll see the transcript after you answer.</p></div></div>
+        <div class="grid g3">
+          <div class="card"><h3>Dialogue <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">A product manager and an engineer negotiate scope for a release that's slipping.</p><span class="pill">B2 · 4 min</span><div style="margin-top:14px"><button class="btn primary">Start</button></div></div>
+          <div class="card"><h3>Monologue <small>General</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">A chef explains why she left a Michelin kitchen to open a bakery in a small town.</p><span class="pill">B2 · 5 min</span><div style="margin-top:14px"><button class="btn">Start</button></div></div>
+          <div class="card"><h3>Talk <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">A conference lightning talk on why most internal tools die within a year.</p><span class="pill amber">B2+ · stretch</span><div style="margin-top:14px"><button class="btn">Start</button></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-reading">
+        <div class="head"><div><h1>Reading</h1><p>Real formats: issues, docs, emails, engineering blogs. Tap any word for a definition.</p></div></div>
+        <div class="grid g3">
+          <div class="card"><h3>GitHub issue <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">"Race condition when two webhooks hit the same order within 200ms"</p><span class="pill">B2 · 420 words</span><div style="margin-top:14px"><button class="btn primary">Read</button></div></div>
+          <div class="card"><h3>Email from a manager <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">A polite but firm message about a missed deadline, and how to reply to it.</p><span class="pill">B2 · 300 words</span><div style="margin-top:14px"><button class="btn">Read</button></div></div>
+          <div class="card"><h3>Long-form essay <small>General</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">On why cities that ban cars downtown end up with more shops, not fewer.</p><span class="pill amber">C1 · stretch</span><div style="margin-top:14px"><button class="btn">Read</button></div></div>
+        </div>
+      </section>
+
+      <section class="view" id="v-writing">
+        <div class="head"><div><h1>Writing</h1><p>You'll get a corrected version, a native "upgrade", and every error goes into your file.</p></div></div>
+        <div class="grid g3">
+          <div class="card"><h3>PR description <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">Describe the change that moved BOM parsing off the request thread.</p><span class="pill">150–250 words</span><div style="margin-top:14px"><button class="btn primary">Write</button></div></div>
+          <div class="card"><h3>Slack reply <small>Work</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">Your tech lead asks why the deploy was reverted. Answer without sounding defensive.</p><span class="pill">80–120 words</span><div style="margin-top:14px"><button class="btn">Write</button></div></div>
+          <div class="card"><h3>Opinion <small>General</small></h3><p style="font-family:var(--serif);font-size:16px;margin-bottom:14px">Should small towns invest in fibre before roads? Argue one side.</p><span class="pill">200 words</span><div style="margin-top:14px"><button class="btn">Write</button></div></div>
+        </div>
+      </section>
+
+      <!-- GRAMMAR -->
+      <section class="view" id="v-grammar">
+        <div class="head">
+          <div><h1>Grammar</h1><p>Built from your own errors, not a textbook index. Each topic shows how close you are to not needing it.</p></div>
+          <button class="btn primary">Drill what's due</button>
+        </div>
+        <div class="filters">
+          <span class="pill on">All</span><span class="pill">Needs work</span><span class="pill">Improving</span><span class="pill">Mastered</span>
+        </div>
+        <div class="gram">
+          <div class="gcard">
+            <header><h4>Present perfect with since / for</h4><span class="pill red">7 errors</span></header>
+            <p>Spanish uses the present with "desde". English needs present perfect when the action started in the past and continues.</p>
+            <div class="ex"><s>I work here since 2021</s> → <em>I've been working here since 2021</em></div>
+            <footer><div class="bar"><i class="a" style="width:25%"></i></div><small>Box 1 · due today</small><button class="btn">Drill</button></footer>
+          </div>
+          <div class="gcard">
+            <header><h4>Prepositions after verbs</h4><span class="pill red">5 errors</span></header>
+            <p>depend on, arrive at, explain something to someone, listen to. Direct translation from Spanish is the trap.</p>
+            <div class="ex"><s>it depends of the client</s> → <em>it depends on the client</em></div>
+            <footer><div class="bar"><i class="a" style="width:40%"></i></div><small>Box 2 · due tomorrow</small><button class="btn">Drill</button></footer>
+          </div>
+          <div class="gcard">
+            <header><h4>Third person -s</h4><span class="pill amber">4 errors</span></header>
+            <p>You know the rule. It disappears when you speak fast. This one is a fluency drill, not a grammar lesson.</p>
+            <div class="ex"><s>Eze know the industry</s> → <em>Eze knows the industry</em></div>
+            <footer><div class="bar"><i class="a" style="width:55%"></i></div><small>Box 3 · due in 3 days</small><button class="btn">Drill</button></footer>
+          </div>
+          <div class="gcard">
+            <header><h4>Active vs passive in technical explanations</h4><span class="pill amber">2 errors</span></header>
+            <p>Interviewers prefer "the queue processes the data" over "the data is processed by the queue". Shorter, clearer, more confident.</p>
+            <div class="ex"><s>the data is processed by a queue</s> → <em>a queue processes the data</em></div>
+            <footer><div class="bar"><i style="width:70%"></i></div><small>Box 4 · due in 8 days</small><button class="btn">Drill</button></footer>
+          </div>
+          <div class="gcard">
+            <header><h4>Articles with general nouns</h4><span class="pill">1 error</span></header>
+            <p>"People are", not "the people are", when you mean people in general.</p>
+            <div class="ex"><s>the people are not ready</s> → <em>people aren't ready</em></div>
+            <footer><div class="bar"><i style="width:85%"></i></div><small>Box 4 · due in 12 days</small><button class="btn">Drill</button></footer>
+          </div>
+          <div class="gcard mastered">
+            <header><h4>Age and years: to be, not to have</h4><span class="pill green">Mastered</span></header>
+            <p>Avoided five lessons in a row. It'll come back once in a while to make sure.</p>
+            <div class="ex"><s>I have 5 years in this</s> → <em>I've spent 5 years on this</em></div>
+            <footer><div class="bar"><i style="width:100%"></i></div><small>Box 5</small></footer>
+          </div>
+        </div>
+      </section>
+
+      <!-- VOCAB -->
+      <section class="view" id="v-vocab">
+        <div class="head">
+          <div><h1>Vocabulary</h1><p>Words you looked up, words the tutor planted, and words you've started using on your own.</p></div>
+        </div>
+        <div class="filters">
+          <span class="pill on">Target · 14</span><span class="pill">Emerging · 22</span><span class="pill">Acquired · 61</span>
+        </div>
+        <div class="vocab">
+          <div class="vcard"><b>trade-off</b><p>a balance between two things you can't fully have at once</p><q>We chose consistency over speed. That's the trade-off.</q><span class="pill amber">Target · Work</span></div>
+          <div class="vcard"><b>bottleneck</b><p>the one point that slows everything else down</p><q>The PDF parser was the bottleneck, not the database.</q><span class="pill amber">Target · Work</span></div>
+          <div class="vcard"><b>to push back</b><p>to disagree politely and hold your position</p><q>I pushed back on the deadline and we got two more days.</q><span class="pill amber">Target · Work</span></div>
+          <div class="vcard"><b>upfront</b><p>in advance, before anything else happens</p><q>Let me say upfront that I've never used Kafka in production.</q><span class="pill green">Emerging · used 2×</span></div>
+          <div class="vcard"><b>to wrap up</b><p>to finish or bring to a close</p><q>Let's wrap up and I'll send the notes.</q><span class="pill green">Emerging · used 1×</span></div>
+          <div class="vcard"><b>cozy</b><p>warm, comfortable, small in a good way</p><q>The café near the plaza is tiny but really cozy.</q><span class="pill amber">Target · General</span></div>
+        </div>
+      </section>
+
+      <!-- ERRORS -->
+      <section class="view" id="v-errors">
+        <div class="head">
+          <div><h1>My errors</h1><p>Every error you've made, where it came from, and how close it is to being gone.</p></div>
+          <button class="btn primary">Practice the 7 due</button>
+        </div>
+        <div class="filters">
+          <span class="pill on">Active · 19</span><span class="pill">Due today · 7</span><span class="pill">Grammar</span><span class="pill">Vocabulary</span><span class="pill">Fluency</span><span class="pill">Mastered · 8</span>
+        </div>
+        <div class="card" style="padding:6px 10px">
+          <table>
+            <thead><tr><th>What you said</th><th>Type</th><th>Source</th><th>Seen</th><th>Progress</th><th></th></tr></thead>
+            <tbody>
+              <tr><td class="q"><s>I work here since 2021</s><div>I've been working here since 2021<span>Spanish uses present with "desde"; English needs present perfect.</span></div></td><td>Grammar · tense</td><td>Speaking, Sep 6</td><td>4×</td><td><span class="box"><i class="f"></i><i></i><i></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+              <tr><td class="q"><s>it depends of the client</s><div>it depends on the client<span>"depender de" → "depend on". Fixed pair, just memorize it.</span></div></td><td>Grammar · preposition</td><td>Writing, Sep 8</td><td>3×</td><td><span class="box"><i class="f"></i><i class="f"></i><i></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+              <tr><td class="q"><s>actually I'm working in a ERP</s><div>currently I'm working on an ERP<span>"actually" means "in fact", not "actualmente". Also: an ERP, on a project.</span></div></td><td>Vocab · false friend</td><td>Speaking, Sep 6</td><td>2×</td><td><span class="box"><i class="f"></i><i></i><i></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+              <tr><td class="q"><s>the client don't trust the numbers</s><div>the client doesn't trust the numbers<span>Third person -s. You know it; it drops when you speed up.</span></div></td><td>Grammar · agreement</td><td>Speaking, today</td><td>4×</td><td><span class="box"><i class="f"></i><i class="f"></i><i class="f"></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+              <tr><td class="q"><s>eh… like… the thing that… you know</s><div>Circumlocution around "queue"<span>You knew the word. Pausing to reach for it is fine; filling with "like" three times isn't.</span></div></td><td>Fluency · fillers</td><td>Speaking, Sep 6</td><td>1×</td><td><span class="box"><i></i><i></i><i></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+              <tr><td class="q"><s>I will explain you the architecture</s><div>I'll explain the architecture to you<span>"explain" never takes a person as direct object. Same for "describe", "suggest".</span></div></td><td>Grammar · word order</td><td>Writing, Sep 8</td><td>1×</td><td><span class="box"><i></i><i></i><i></i><i></i><i></i></span></td><td><button class="act">Dismiss</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PROGRESS -->
+      <section class="view" id="v-progress">
+        <div class="head"><div><h1>Progress</h1><p>The number that matters is the last one.</p></div></div>
+        <div class="grid g3">
+          <div class="card stat"><b>34</b><span>lessons in 30 days</span></div>
+          <div class="card stat"><b>8</b><span>errors mastered</span></div>
+          <div class="card stat" style="border-color:var(--green)"><b style="color:var(--green)">71%</b><span>targeted errors avoided, last 7 days</span></div>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card">
+            <h3>Errors avoided per lesson <small>speaking only</small></h3>
+            <div class="chart">
+              <i style="height:20%"></i><i style="height:33%"></i><i style="height:33%"></i><i class="g" style="height:50%"></i><i style="height:33%"></i><i class="g" style="height:66%"></i><i class="g" style="height:66%"></i><i style="height:50%"></i><i class="g" style="height:100%"></i><i class="g" style="height:66%"></i><i class="g" style="height:100%"></i><i class="g" style="height:66%"></i>
+            </div>
+            <div class="chart-x"><span>Aug 28</span><span>Sep 9</span></div>
+          </div>
+          <div class="card">
+            <h3>Speaking pace</h3>
+            <div class="skills">
+              <div class="skill"><span>Words / min</span><div class="bar"><i style="width:62%"></i></div><span class="lvl">96</span></div>
+              <div class="skill"><span>Fillers</span><div class="bar"><i class="a" style="width:30%"></i></div><span class="lvl">6%</span></div>
+              <div class="skill"><span>Your share</span><div class="bar"><i style="width:68%"></i></div><span class="lvl">68%</span></div>
+            </div>
+            <p style="margin-top:14px;color:var(--ink-2);font-size:13px">Native conversational pace is 120–150 wpm. You were at 78 two weeks ago.</p>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+  function go(v){
+    document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='v-'+v));
+    document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.v===v));
+    toggleSide(false);
+    window.scrollTo({top:0});
+  }
+  function toggleSide(open){
+    document.getElementById('side').classList.toggle('open',open);
+    document.getElementById('scrim').classList.toggle('on',open);
+  }
+</script>
+</body>
+</html>

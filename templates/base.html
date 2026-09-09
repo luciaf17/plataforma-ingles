@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block page_title %}{{ title|default:"tutor-en" }}{% endblock %} · tutor-en</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  // Palette and type from the prototype. Colors point at the CSS variables in
+  // app.css so the same tokens work in utility classes and hand-written CSS.
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bg: "var(--bg)", panel: "var(--panel)", "panel-2": "var(--panel-2)", line: "var(--line)",
+          ink: "var(--ink)", "ink-2": "var(--ink-2)", "ink-3": "var(--ink-3)",
+          amber: "var(--amber)", "amber-soft": "var(--amber-soft)",
+          green: "var(--green)", "green-soft": "var(--green-soft)",
+          red: "var(--red)", "red-soft": "var(--red-soft)",
+          blue: "var(--blue)",
+        },
+        fontFamily: {
+          sans: ["Public Sans", "system-ui", "-apple-system", "sans-serif"],
+          serif: ["Newsreader", "Georgia", "Times New Roman", "serif"],
+        },
+        borderRadius: { DEFAULT: "8px" },
+      },
+    },
+  };
+</script>
+<link rel="stylesheet" href="{% static 'css/app.css' %}">
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+{% block head %}{% endblock %}
+</head>
+<body>
+<div class="scrim" id="scrim" onclick="toggleSide(false)"></div>
+<div class="app">
+
+  {% include "core/_sidebar.html" %}
+
+  <div>
+    <div class="topbar">
+      <button onclick="toggleSide(true)" aria-label="Menu"><svg width="22" height="22" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <b>tutor-en</b>
+    </div>
+
+    <main class="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<script src="{% static 'js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
