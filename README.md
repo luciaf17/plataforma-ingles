@@ -19,6 +19,7 @@ py -3.12 -m venv .venv
 pip install -r requirements.txt
 copy .env.example .env      # then edit SECRET_KEY and DATABASE_URL
 python manage.py migrate
+python manage.py loaddata seed
 python manage.py createsuperuser
 python manage.py runserver
 ```
@@ -57,7 +58,7 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | # | Module | Status |
 |---|---|---|
 | 1 | `core` | done |
-| 2 | `learners` | pending |
+| 2 | `learners` | done |
 | 3 | `lessons` models | pending |
 | 4 | `ai/client.py` | pending |
 | 5 | `ai/analyzer.py` | pending |

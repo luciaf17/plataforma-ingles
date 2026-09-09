@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Project apps
     "core",
+    "learners",
 ]
 
 MIDDLEWARE = [
@@ -82,6 +83,8 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = env("TIME_ZONE")
 USE_I18N = True
 USE_TZ = True
+
+FIXTURE_DIRS = [BASE_DIR / "fixtures"]
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
