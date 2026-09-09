@@ -60,8 +60,8 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 1 | `core` | done |
 | 2 | `learners` | done |
 | 3 | `lessons` models | done |
-| 4 | `ai/client.py` | done (smoke pending key) |
-| 5 | `ai/analyzer.py` | pending |
+| 4 | `ai/client.py` | done |
+| 5 | `ai/analyzer.py` | done |
 | 6 | `lessons/postprocess.py` | pending |
 | 7 | `ai/planner.py` | pending |
 | 8 | speaking runner | pending |
