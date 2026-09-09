@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "core",
     "learners",
     "lessons",
+    "ai",
 ]
 
 MIDDLEWARE = [
@@ -96,3 +97,21 @@ MEDIA_URL = "media/"
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
 LOGIN_URL = "admin:login"
+
+# OpenAI (spec 2). Models are pinned here so a swap is one line.
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
+OPENAI_CHAT_MODEL = env("OPENAI_CHAT_MODEL", default="gpt-4o")
+OPENAI_STT_MODEL = env("OPENAI_STT_MODEL", default="gpt-4o-transcribe")
+OPENAI_TTS_MODEL = env("OPENAI_TTS_MODEL", default="gpt-4o-mini-tts")
+OPENAI_TIMEOUT_SECONDS = env.float("OPENAI_TIMEOUT_SECONDS", default=60.0)
+OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}},
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "loggers": {
+        "ai": {"handlers": ["console"], "level": "INFO", "propagate": False},
+    },
+}
