@@ -26,7 +26,7 @@
       <h3>Level by skill <small>bar = progress to {{ learner.target_level }}</small></h3>
       <div class="skills">
         {% for s in skill_levels %}
-          <div class="skill"><span>{{ s.name }}</span><div class="bar"><i class="{% if not s.is_target %}a{% endif %}" style="width:{{ s.pct }}%"></i></div><span class="lvl">{{ s.level }}</span></div>
+          <div class="skill"><span>{{ s.name }}</span><div class="bar"><i class="{% if not s.is_target %}a{% endif %}" style="width:{{ s.pct }}%"></i></div><span class="lvl">{{ s.level }}{% if s.hint %}<i class="sig {{ s.direction }}" title="{{ s.hint }}">{% if s.direction == 'down' %}▾{% else %}▴{% endif %}</i>{% endif %}</span></div>
         {% endfor %}
         <div class="skill" style="margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)"><span>Program</span><div class="bar"><i style="width:{{ program.pct }}%"></i></div><span class="lvl">{{ program.mastered }}/{{ program.total }}</span></div>
       </div>
@@ -86,6 +86,8 @@
   .picker .actions{grid-column:1/-1;display:flex;gap:10px}
   .today .targets .n{align-self:flex-start}
   .row .what a:hover{text-decoration:underline}
+  .skill .lvl .sig{font-style:normal;margin-left:3px;cursor:help}
+  .skill .lvl .sig.up{color:var(--green)} .skill .lvl .sig.down{color:var(--amber)}
   @media (max-width:860px){.picker form{grid-template-columns:1fr}}
 </style>
 {% endblock %}

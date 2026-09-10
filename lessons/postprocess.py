@@ -21,7 +21,7 @@ from django.utils import timezone
 
 from learners.models import LearnerGrammarTopic
 
-from . import srs
+from . import leveling, srs
 from .models import ErrorItem, Lesson, LessonReport, VocabItem
 
 log = logging.getLogger("lessons.postprocess")
@@ -45,6 +45,8 @@ class PostprocessSummary:
     vocab_touched: list = field(default_factory=list)
     grammar_topic_status: str = ""
     report: LessonReport | None = None
+    level_changed: bool = False
+    level_detail: dict = field(default_factory=dict)
 
     @property
     def counts(self):
@@ -278,5 +280,11 @@ def apply_analysis(lesson, result, *, confidence=None):
 
     lesson.status = Lesson.Status.ANALYZED
     lesson.save(update_fields=["status"])
-    log.info("lesson %s postprocessed: %s, grammar topic -> %s", lesson.id, summary.counts, summary.grammar_topic_status or "none")
+    # The level only moves when three consecutive lessons of this skill agree (spec 7c.2).
+    summary.level_changed, summary.level_detail = leveling.apply_signal(lesson.learner, lesson.skill)
+    log.info(
+        "lesson %s postprocessed: %s, grammar topic -> %s, level %s",
+        lesson.id, summary.counts, summary.grammar_topic_status or "none",
+        f"{lesson.skill} -> {summary.level_detail.get('new')}" if summary.level_changed else "unchanged",
+    )
     return summary

@@ -13,7 +13,7 @@ from django.views.decorators.http import require_POST
 from ai import analyzer, client, level_assessor, minilesson, planner, tutor, vocab, writing
 from learners.models import Learner
 
-from . import postprocess
+from . import leveling, postprocess
 from .diff import change_count, diff_html
 from .models import Checkpoint, ErrorItem, Lesson, LessonReport, Turn, VocabItem
 from .templatetags.lesson_extras import tutor_line
@@ -840,6 +840,7 @@ def report(request, lesson_id):
         "recycled_errors": pick("recycled_error_ids"),
         "avoided_errors": pick("avoided_error_ids"),
         "cefr_signal": meta.get("cefr_signal") or {},
+        "level_signal": leveling.pending_change(lesson.learner, lesson.skill) if lesson.skill in leveling.SKILLS else None,
         "targeted_count": len((lesson.plan or {}).get("targeted_error_ids", [])),
         "learner_words": sum(t.word_count for t in learner_turns),
         "learner_turns": learner_turns.count(),

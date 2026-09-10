@@ -79,6 +79,9 @@
       <p class="hint" style="margin-top:12px;font-size:13px">{{ learner_turns }} turns from you. Native conversational pace is 120–150 wpm.</p>
       {% if cefr_signal.estimate %}
         <p class="hint" style="margin-top:8px;font-size:13px"><span class="pill">Level signal · {{ cefr_signal.estimate }}</span> {{ cefr_signal.reasoning }}</p>
+        {% if level_signal and level_signal.streak %}
+          <p class="hint" style="margin-top:6px;font-size:13px">{% if level_signal.streak >= 3 and level_signal.stored %}Your {{ lesson.skill }} level is now <b>{{ level_signal.stored }}</b>.{% else %}{{ level_signal.streak }} of 3 lessons in a row point at {{ level_signal.band }}. Your stored level changes at three.{% endif %}</p>
+        {% endif %}
       {% endif %}
     </div>
     {% endif %}

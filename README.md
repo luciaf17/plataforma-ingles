@@ -115,6 +115,6 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 18 | cron | done |
 | 19 | checkpoint | done |
 | 20 | onboarding | done |
-| 21 | level tracking | pending |
+| 21 | level tracking | done |
 | 22 | progress | pending |
 | 23 | polish | pending |

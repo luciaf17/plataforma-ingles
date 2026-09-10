@@ -2,7 +2,9 @@
 
 from datetime import timedelta
 
+from ai.level_assessor import BANDS
 from learners.models import CEFR_ORDER, GrammarTopic, LearnerGrammarTopic
+from lessons import leveling
 from lessons.models import Lesson, LessonReport
 
 FINISHED = (Lesson.Status.COMPLETED, Lesson.Status.ANALYZED)
@@ -66,10 +68,21 @@ def yesterday_line(learner, today):
 
 
 def skill_levels(learner):
+    signals = {row["skill"]: row for row in leveling.signal_overview(learner)}
     rows = []
     for key, name in SKILL_NAMES:
         level = getattr(learner, f"cefr_{key}")
-        rows.append({"key": key, "name": name, "level": level or "—", "pct": LEVEL_PCT.get(level[:2], 0) if level else 0, "is_target": level[:2] >= learner.target_level if level else False})
+        signal = signals.get(key, {})
+        hint, signal_dir = "", ""
+        if signal.get("moving"):
+            signal_dir = "up" if BANDS.index(signal["band"]) > (BANDS.index(level) if level in BANDS else -1) else "down"
+            hint = f"{signal['band']} in {signal['streak']} of the last {signal['needed']} lessons"
+        rows.append({
+            "key": key, "name": name, "level": level or "—",
+            "pct": LEVEL_PCT.get(level[:2], 0) if level else 0,
+            "is_target": level[:2] >= learner.target_level if level else False,
+            "hint": hint, "direction": signal_dir,
+        })
     return rows
 
 
