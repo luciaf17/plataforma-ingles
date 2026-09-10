@@ -2,6 +2,8 @@ from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
 
+from ai.models import ApiCall
+
 # Title and subtitle per sidebar section, lifted from the prototype copy.
 SECTIONS = {
     "listening": ("Listening", "Two listens max. You'll see the transcript after you answer."),
@@ -25,8 +27,8 @@ def placeholder(request, section):
     if section not in SECTIONS:
         raise Http404
     title, subtitle = SECTIONS[section]
-    return render(
-        request,
-        "core/placeholder.html",
-        {"section": section, "title": title, "subtitle": subtitle},
-    )
+    context = {"section": section, "title": title, "subtitle": subtitle}
+    if section == "progress":
+        # The full Progress screen is module 22; the running API cost is shown from day one.
+        context["usage"] = ApiCall.totals()
+    return render(request, "core/placeholder.html", context)

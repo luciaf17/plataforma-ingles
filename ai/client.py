@@ -75,7 +75,17 @@ def _call(label, fn, **kwargs):
     return result, elapsed_ms
 
 
-def chat(messages, *, model=None, temperature=0.7, max_tokens=None, response_format=None):
+def _record(kind, model, **fields):
+    """Persist one call for the cost screen. Never let bookkeeping break a lesson."""
+    try:
+        from .models import ApiCall
+
+        ApiCall.record(kind, model, **fields)
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("could not record api usage: %s", exc)
+
+
+def chat(messages, *, model=None, temperature=0.7, max_tokens=None, response_format=None, purpose="", lesson_id=None):
     """Plain chat completion. Returns a ChatResult with the assistant text."""
     model = model or settings.OPENAI_CHAT_MODEL
     kwargs = {"model": model, "messages": messages, "temperature": temperature}
@@ -97,13 +107,15 @@ def chat(messages, *, model=None, temperature=0.7, max_tokens=None, response_for
         "chat model=%s tokens=%d+%d latency=%dms finish=%s",
         result.model, result.prompt_tokens, result.completion_tokens, elapsed_ms, choice.finish_reason,
     )
+    _record("chat", model, purpose=purpose, lesson_id=lesson_id, prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens, latency_ms=elapsed_ms)
     refusal = getattr(choice.message, "refusal", None)
     if refusal:
         raise AIUnavailable(f"chat: model refused: {refusal}")
     return result
 
 
-def chat_json(messages, schema, *, schema_name="result", model=None, temperature=0.2, max_tokens=None):
+def chat_json(messages, schema, *, schema_name="result", model=None, temperature=0.2, max_tokens=None, purpose="", lesson_id=None):
     """Chat completion constrained to a JSON schema. Returns the parsed object.
 
     `schema` is a plain JSON-schema dict. Strict mode is on, so the schema must
@@ -114,7 +126,8 @@ def chat_json(messages, schema, *, schema_name="result", model=None, temperature
         "type": "json_schema",
         "json_schema": {"name": schema_name, "schema": schema, "strict": True},
     }
-    result = chat(messages, model=model, temperature=temperature, max_tokens=max_tokens, response_format=response_format)
+    result = chat(messages, model=model, temperature=temperature, max_tokens=max_tokens, response_format=response_format,
+                  purpose=purpose or schema_name, lesson_id=lesson_id)
     try:
         result.data = json.loads(result.content)
     except json.JSONDecodeError as exc:
@@ -139,8 +152,9 @@ class TranscriptResult:
     word_count: int = 0
 
 
-def transcribe(file, *, prompt=VERBATIM_PROMPT, language="en", model=None):
-    """Speech to text. `file` is an open binary file or a (name, bytes) tuple."""
+def transcribe(file, *, prompt=VERBATIM_PROMPT, language="en", model=None, duration_ms=None, purpose="", lesson_id=None):
+    """Speech to text. `file` is an open binary file or a (name, bytes) tuple.
+    `duration_ms` is only used to estimate cost."""
     model = model or settings.OPENAI_STT_MODEL
     response, elapsed_ms = _call(
         "transcribe",
@@ -154,6 +168,7 @@ def transcribe(file, *, prompt=VERBATIM_PROMPT, language="en", model=None):
     text = (response.text or "").strip()
     result = TranscriptResult(text=text, model=model, word_count=len(text.split()))
     log.info("transcribe model=%s words=%d latency=%dms", model, result.word_count, elapsed_ms)
+    _record("transcribe", model, purpose=purpose, lesson_id=lesson_id, audio_seconds=(duration_ms or 0) / 1000, latency_ms=elapsed_ms)
     return result
 
 
@@ -165,7 +180,7 @@ TUTOR_VOICE_INSTRUCTIONS = (
 )
 
 
-def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, response_format="mp3", model=None):
+def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, response_format="mp3", model=None, purpose="", lesson_id=None):
     """Text to speech. Returns the audio bytes."""
     model = model or settings.OPENAI_TTS_MODEL
     response, elapsed_ms = _call(
@@ -179,4 +194,5 @@ def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, r
     )
     audio = response.content
     log.info("speak model=%s voice=%s chars=%d bytes=%d latency=%dms", model, voice, len(text), len(audio), elapsed_ms)
+    _record("speak", model, purpose=purpose, lesson_id=lesson_id, characters=len(text), latency_ms=elapsed_ms)
     return audio

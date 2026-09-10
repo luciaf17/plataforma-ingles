@@ -213,7 +213,7 @@ def _tutor_turn(lesson, phase, event, elapsed_in_phase):
     turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=text, phase=phase, sequence=next_sequence(lesson))
     audio_url = None
     try:
-        audio = client.speak(tutor.for_speech(text))
+        audio = client.speak(tutor.for_speech(text), purpose="tutor", lesson_id=lesson.id)
         turn.audio_file.save(f"tutor-{lesson.id}-{turn.sequence}.mp3", ContentFile(audio), save=True)
         audio_url = turn.audio_file.url
     except client.AIUnavailable as exc:
@@ -267,7 +267,7 @@ def turn(request, lesson_id):
 
     if audio:
         try:
-            transcript = client.transcribe((audio.name or "turn.webm", audio.read()))
+            transcript = client.transcribe((audio.name or "turn.webm", audio.read()), duration_ms=duration_ms, purpose="tutor", lesson_id=lesson.id)
         except client.AIUnavailable as exc:
             return JsonResponse({"error": f"Could not transcribe that ({exc}). Try again."}, status=503)
         text = transcript.text

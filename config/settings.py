@@ -106,6 +106,20 @@ OPENAI_TTS_MODEL = env("OPENAI_TTS_MODEL", default="gpt-4o-mini-tts")
 OPENAI_TIMEOUT_SECONDS = env.float("OPENAI_TIMEOUT_SECONDS", default=60.0)
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
 
+# Estimated list prices, USD. Chat: per million tokens. STT: per minute of
+# audio. TTS: per thousand characters (~150 words/min at $0.015/min).
+# Adjust when OpenAI changes them; the cost screen is an estimate.
+OPENAI_PRICES = {
+    "gpt-4o": {"input_per_m": 2.50, "output_per_m": 10.00},
+    "gpt-4o-mini": {"input_per_m": 0.15, "output_per_m": 0.60},
+    "gpt-4o-transcribe": {"per_minute": 0.006},
+    "gpt-4o-mini-tts": {"per_k_chars": 0.0167},
+    # Fallbacks by kind when the exact model name is not listed.
+    "chat": {"input_per_m": 2.50, "output_per_m": 10.00},
+    "transcribe": {"per_minute": 0.006},
+    "speak": {"per_k_chars": 0.0167},
+}
+
 # Skills the planner may schedule. Grows as each runner lands (spec 13).
 LESSON_SKILLS_ENABLED = env.list("LESSON_SKILLS_ENABLED", default=["speaking"])
 

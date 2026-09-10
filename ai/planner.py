@@ -342,7 +342,7 @@ def generate_plan(learner, selection):
         {"role": "system", "content": load_prompt("planner")},
         {"role": "user", "content": json.dumps(build_context(learner, selection), ensure_ascii=False, indent=2)},
     ]
-    chat = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7)
+    chat = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
     plan = normalise_plan(chat.data, learner, selection)
     plan["_meta"] = {"model": chat.model, "prompt_tokens": chat.prompt_tokens, "completion_tokens": chat.completion_tokens}
     log.info(

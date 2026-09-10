@@ -4,5 +4,22 @@
 <div class="head">
   <div><h1>{{ title }}</h1><p>{{ subtitle }}</p></div>
 </div>
-<div class="empty">This screen isn't built yet.</div>
+{% if usage %}
+<div class="grid g3" style="margin-bottom:16px">
+  <div class="card stat"><b>${{ usage.today.cost|floatformat:2 }}</b><span>API cost today · {{ usage.today.calls }} calls</span></div>
+  <div class="card stat"><b>${{ usage.week.cost|floatformat:2 }}</b><span>last 7 days · {{ usage.week.calls }} calls</span></div>
+  <div class="card stat"><b>${{ usage.all.cost|floatformat:2 }}</b><span>all time · {{ usage.all.calls }} calls</span></div>
+</div>
+<div class="card" style="margin-bottom:16px">
+  <h3>What the money goes to <small>estimated from list prices</small></h3>
+  <div class="skills">
+    {% for kind, cost in usage.by_kind.items %}
+      <div class="skill"><span>{{ kind|capfirst }}</span><div class="bar"><i style="width:{% widthratio cost usage.all.cost 100 %}%"></i></div><span class="lvl">${{ cost|floatformat:2 }}</span></div>
+    {% empty %}
+      <p class="hint">No API calls recorded yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+<div class="empty">The rest of this screen isn't built yet.</div>
 {% endblock %}

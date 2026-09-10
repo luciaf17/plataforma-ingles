@@ -83,7 +83,7 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
 def respond(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, history=None):
     """The tutor's next spoken line. Raises AIUnavailable if the model is down."""
     messages = build_messages(lesson, phase_key=phase_key, event=event, elapsed_in_phase_s=elapsed_in_phase_s, history=history)
-    result = client.chat(messages, temperature=0.8, max_tokens=MAX_REPLY_TOKENS)
+    result = client.chat(messages, temperature=0.8, max_tokens=MAX_REPLY_TOKENS, purpose="tutor", lesson_id=lesson.id)
     text = result.content.strip()
     log.info("tutor lesson=%s phase=%s event=%s chars=%d", lesson.id, phase_key, event, len(text))
     return text

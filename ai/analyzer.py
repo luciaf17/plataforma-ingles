@@ -216,7 +216,7 @@ def _clean_terms(terms):
     return list(seen)
 
 
-def analyze_transcript(transcript, *, skill, cefr, target_level="B2", grammar_topic=None, targeted_errors=(), plan_summary=""):
+def analyze_transcript(transcript, *, skill, cefr, target_level="B2", grammar_topic=None, targeted_errors=(), plan_summary="", lesson_id=None):
     """Analyze a plain transcript string. Used by `analyze()` and by the sample fixture check."""
     messages = build_messages(
         transcript,
@@ -227,7 +227,7 @@ def analyze_transcript(transcript, *, skill, cefr, target_level="B2", grammar_to
         targeted_errors=targeted_errors,
         plan_summary=plan_summary,
     )
-    chat = client.chat_json(messages, ANALYSIS_SCHEMA, schema_name="lesson_analysis", temperature=0.2)
+    chat = client.chat_json(messages, ANALYSIS_SCHEMA, schema_name="lesson_analysis", temperature=0.2, purpose="analyzer", lesson_id=lesson_id)
     result = validate(chat.data, targeted_ids=[e["id"] for e in targeted_errors], skill=skill)
     result.prompt_tokens, result.completion_tokens = chat.prompt_tokens, chat.completion_tokens
     log.info(
@@ -267,4 +267,5 @@ def analyze(lesson):
         grammar_topic=grammar_topic,
         targeted_errors=targeted,
         plan_summary=plan.get("summary", "") or plan.get("title", ""),
+        lesson_id=lesson.id,
     )
