@@ -37,6 +37,31 @@ C:\Users\maril\dev\pgsql\pgsql\bin\pg_ctl -D C:\Users\maril\dev\pgsql\data stop
 
 Credentials for local dev: user `postgres`, password `postgres`, database `tutor_en` (matches `.env.example`).
 
+## Deploy (Railway)
+
+The repo carries `railway.json` (build + start commands) and a `Procfile`. On every start the app runs migrations, then `manage.py bootstrap` (creates the superuser from env and loads the seed if the database is empty), then gunicorn.
+
+1. Create a Railway project from this GitHub repo and add a **PostgreSQL** service. Railway injects `DATABASE_URL`.
+2. Add a **volume** to the web service mounted at `/data`. Lesson audio is stored there.
+3. Set these variables on the web service:
+
+```
+SECRET_KEY=<long random string>
+DEBUG=False
+ALLOWED_HOSTS=<your-app>.up.railway.app
+CSRF_TRUSTED_ORIGINS=https://<your-app>.up.railway.app
+MEDIA_ROOT=/data/media
+OPENAI_API_KEY=sk-...
+DJANGO_SUPERUSER_USERNAME=lu
+DJANGO_SUPERUSER_PASSWORD=<password>
+DJANGO_SUPERUSER_EMAIL=you@example.com
+TIME_ZONE=America/Argentina/Buenos_Aires
+```
+
+4. Generate a public domain for the service. The microphone only works over HTTPS, which Railway provides.
+
+Static files are served by whitenoise; media is served by Django behind login (single user, small files).
+
 ## Layout
 
 ```
@@ -66,4 +91,4 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 7 | `ai/planner.py` | done |
 | 8 | speaking runner | done |
 | 9 | lesson report | done |
-| 10 | deploy | pending |
+| 10 | deploy | in progress |

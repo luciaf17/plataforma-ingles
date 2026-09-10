@@ -1,6 +1,9 @@
+from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import render
 from django.utils import timezone
+from django.views.static import serve
 
 from ai.models import ApiCall
 
@@ -21,6 +24,11 @@ def today(request):
     # Day number without a leading zero, portable across Windows and Unix.
     title = f"{now:%A}, {now:%B} {now.day}"
     return render(request, "core/today.html", {"section": "today", "title": title})
+
+
+@login_required
+def protected_media(request, path):
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
 
 
 def placeholder(request, section):

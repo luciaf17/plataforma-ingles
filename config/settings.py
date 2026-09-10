@@ -5,6 +5,7 @@ Every environment-specific value comes from the environment (or a local
 `.env` file) through django-environ. See `.env.example` for the full list.
 """
 
+import sys
 from pathlib import Path
 
 import environ
@@ -41,6 +42,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -91,12 +93,37 @@ FIXTURE_DIRS = [BASE_DIR / "fixtures"]
 STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Hashed, compressed static files in production only: the manifest storage
+# needs `collectstatic` output, which dev and the test runner never have.
+_TESTING = len(sys.argv) > 1 and sys.argv[1] == "test"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "django.contrib.staticfiles.storage.StaticFilesStorage"
+            if DEBUG or _TESTING
+            else "whitenoise.storage.CompressedManifestStaticFilesStorage"
+        )
+    },
+}
 
 # Audio recordings and generated TTS files live here (a Railway volume in prod).
 MEDIA_URL = "media/"
 MEDIA_ROOT = env("MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
 LOGIN_URL = "admin:login"
+
+# Behind Railway's proxy the request reaches Django over plain HTTP; trust the
+# forwarded header so `request.is_secure()` and secure cookies work.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=True)
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=60 * 60 * 24 * 30)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
 
 # OpenAI (spec 2). Models are pinned here so a swap is one line.
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
