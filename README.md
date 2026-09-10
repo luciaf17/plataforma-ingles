@@ -57,7 +57,7 @@ To recreate from scratch:
 ```
 SECRET_KEY=<long random string>
 DEBUG=False
-ALLOWED_HOSTS=<your-app>.up.railway.app
+ALLOWED_HOSTS=<your-app>.up.railway.app,healthcheck.railway.app
 CSRF_TRUSTED_ORIGINS=https://<your-app>.up.railway.app
 MEDIA_ROOT=/data/media
 OPENAI_API_KEY=sk-...
@@ -65,6 +65,7 @@ DJANGO_SUPERUSER_USERNAME=lu
 DJANGO_SUPERUSER_PASSWORD=<password>
 DJANGO_SUPERUSER_EMAIL=you@example.com
 TIME_ZONE=America/Argentina/Buenos_Aires
+SECURE_SSL_REDIRECT=False
 ```
 
    and on `cron`: `SECRET_KEY`, `OPENAI_API_KEY`, `DATABASE_URL` by reference, `DEBUG=False`, `ALLOWED_HOSTS=*`, `SECURE_SSL_REDIRECT=False`, `TIME_ZONE`.
@@ -72,7 +73,7 @@ TIME_ZONE=America/Argentina/Buenos_Aires
 5. Generate a public domain for `web`. The microphone only works over HTTPS, which Railway provides.
 6. `railway up --service web` and `railway up --service cron`.
 
-Static files are served by whitenoise; media is served by Django behind login (single user, small files).
+Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
 ## Layout
 
