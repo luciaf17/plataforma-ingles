@@ -219,3 +219,27 @@ class Checkpoint(models.Model):
 
     def estimate_for(self, skill):
         return (self.results.get(skill) or {}).get("estimate", "")
+
+
+class ProgressReview(models.Model):
+    """A coach's read of the last few lessons (Progress screen, "Review my recent lessons").
+
+    Generated on demand and kept, so opening Progress does not spend a call.
+    """
+
+    learner = models.ForeignKey(Learner, on_delete=models.CASCADE, related_name="reviews")
+    summary_es = models.TextField()
+    improving = models.JSONField(default=list, blank=True)
+    stuck = models.JSONField(default=list, blank=True)
+    focus = models.JSONField(default=list, blank=True)
+    lessons_covered = models.PositiveIntegerField(default=0)
+    period_start = models.DateField(null=True, blank=True)
+    period_end = models.DateField(null=True, blank=True)
+    raw = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Review for {self.learner} · {self.created_at:%Y-%m-%d}"

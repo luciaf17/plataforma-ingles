@@ -8,18 +8,16 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.static import serve
 
-from ai import client, planner
-from ai.models import ApiCall
+from ai import client, planner, review as ai_review
 from learners.models import CEFR_ORDER, GrammarTopic, Learner, Topic, Track
-from lessons.models import ErrorItem, Lesson, VocabItem
+from lessons.models import ErrorItem, Lesson, ProgressReview, VocabItem
 
-from . import dashboard, grammar
+from . import dashboard, grammar, progress
 
 log = logging.getLogger("core.views")
 
 # Title and subtitle per sidebar section, lifted from the prototype copy.
 SECTIONS = {
-    "progress": ("Progress", "The number that matters is the last one."),
 }
 
 PICKER_DURATIONS = [10, 15, 20, 30]
@@ -297,6 +295,69 @@ def vocab_status(request, item_id):
     return redirect(request.POST.get("next") or "/vocabulary/")
 
 
+SKILL_LABELS = {"speaking": "Speaking", "listening": "Listening", "reading": "Reading", "writing": "Writing"}
+
+
+def review_block(learner):
+    """Context for the AI review card: the stored review, if any."""
+    return {
+        "review": ProgressReview.objects.filter(learner=learner).first(),
+        "can_review": learner.lessons.filter(status="analyzed").exists(),
+    }
+
+
+@login_required
+def progress_page(request):
+    """Spec 8.7: lessons, errors mastered, share of targeted errors avoided,
+    the avoided-per-lesson chart, speaking pace, the last checkpoint and cost."""
+    learner = Learner.for_user(request.user)
+    today = timezone.localdate()
+    context = progress.screen(learner, today)
+    checkpoint = context["checkpoint"]
+    context.update({
+        "section": "progress",
+        "title": "Progress",
+        "chart_from": context["chart"][0]["date"] if context["chart"] else None,
+        "chart_to": context["chart"][-1]["date"] if context["chart"] else None,
+        "checkpoint_levels": [
+            {"name": SKILL_LABELS[s], "estimate": (checkpoint.results.get(s) or {}).get("estimate", "")}
+            for s in SKILL_LABELS
+            if checkpoint and (checkpoint.results.get(s) or {}).get("assessed")
+        ],
+        **review_block(learner),
+    })
+    return render(request, "core/progress.html", context)
+
+
+@login_required
+@require_POST
+def progress_review(request):
+    """Generate a fresh review of the recent lessons. Answers the HTMX card."""
+    learner = Learner.for_user(request.user)
+    today = timezone.localdate()
+    lessons, errors, mastered, vocabulary, checkpoint = progress.review_context(learner, today)
+    if not lessons:
+        return render(request, "core/_progress_review.html", {**review_block(learner), "review_error": "There are no analyzed lessons to review yet."}, status=422)
+    context = ai_review.build_context(learner, lessons, errors, mastered, vocabulary, last_checkpoint=checkpoint)
+    try:
+        result = ai_review.review(learner, context)
+    except client.AIUnavailable as exc:
+        log.error("progress review failed: %s", exc)
+        return render(request, "core/_progress_review.html", {**review_block(learner), "review_error": f"Could not write the review right now ({exc}). Try again in a moment."}, status=503)
+    review = ProgressReview.objects.create(
+        learner=learner,
+        summary_es=result["summary_es"],
+        improving=result["improving"],
+        stuck=result["stuck"],
+        focus=result["focus"],
+        lessons_covered=len(lessons),
+        period_start=lessons[-1]["date"],
+        period_end=lessons[0]["date"],
+        raw=result["raw"],
+    )
+    return render(request, "core/_progress_review.html", {"review": review, "can_review": True})
+
+
 @login_required
 def grammar_page(request):
     """Spec 7b: the A2 -> B2 program with statuses on top, recurring errors below."""
@@ -371,8 +432,4 @@ def placeholder(request, section):
     if section not in SECTIONS:
         raise Http404
     title, subtitle = SECTIONS[section]
-    context = {"section": section, "title": title, "subtitle": subtitle}
-    if section == "progress":
-        # The full Progress screen is module 22; the running API cost is shown from day one.
-        context["usage"] = ApiCall.totals()
-    return render(request, "core/placeholder.html", context)
+    return render(request, "core/placeholder.html", {"section": section, "title": title, "subtitle": subtitle})

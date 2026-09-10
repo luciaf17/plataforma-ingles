@@ -3,7 +3,7 @@ import json
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Checkpoint, ErrorItem, Lesson, LessonReport, Turn, VocabItem
+from .models import Checkpoint, ErrorItem, Lesson, LessonReport, ProgressReview, Turn, VocabItem
 
 
 class TurnInline(admin.TabularInline):
@@ -85,3 +85,9 @@ class LessonReportAdmin(admin.ModelAdmin):
 class CheckpointAdmin(admin.ModelAdmin):
     list_display = ("taken_at", "learner", "lesson")
     readonly_fields = ("taken_at",)
+
+
+@admin.register(ProgressReview)
+class ProgressReviewAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "learner", "lessons_covered", "period_start", "period_end")
+    readonly_fields = ("created_at",)

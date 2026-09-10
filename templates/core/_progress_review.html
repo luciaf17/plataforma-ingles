@@ -1,0 +1,26 @@
+<h3>How you're doing <small>{% if review %}reviewed {{ review.created_at|date:"j M, H:i" }} · {{ review.lessons_covered }} lesson{{ review.lessons_covered|pluralize }}{% else %}a read across your recent lessons{% endif %}</small></h3>
+
+{% if review_error %}
+  <p class="hint" style="color:var(--red)">{{ review_error }}</p>
+{% endif %}
+
+{% if review %}
+  <p class="note">{{ review.summary_es|linebreaksbr }}</p>
+  <div class="review-lists">
+    <div><h4>Moving</h4><ul class="up">{% for line in review.improving %}<li>{{ line }}</li>{% empty %}<li>—</li>{% endfor %}</ul></div>
+    <div><h4>Stuck</h4><ul class="stuck">{% for line in review.stuck %}<li>{{ line }}</li>{% empty %}<li>—</li>{% endfor %}</ul></div>
+    <div><h4>Do this next</h4><ul class="focus">{% for line in review.focus %}<li>{{ line }}</li>{% empty %}<li>—</li>{% endfor %}</ul></div>
+  </div>
+{% elif not review_error %}
+  <p class="hint">Ask for an honest read of your last lessons: what's moving, what isn't, and what to work on for the next two weeks.</p>
+{% endif %}
+
+{% if can_review %}
+<form hx-post="{% url 'core:progress_review' %}" hx-target="#review-box" hx-swap="innerHTML" hx-indicator="#review-box" style="margin-top:16px">
+  {% csrf_token %}
+  <button class="btn {% if not review %}primary{% endif %}" type="submit">{% if review %}Review again{% else %}Review my recent lessons{% endif %}</button>
+  <span class="htmx-indicator hint" style="margin-left:10px">Reading your file…</span>
+</form>
+{% else %}
+  <p class="hint" style="margin-top:12px">Give at least one lesson and the review will have something to read.</p>
+{% endif %}

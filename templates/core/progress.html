@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>Progress</h1><p>The number that matters is the last one.</p></div>
+</div>
+
+<div class="grid g3">
+  <div class="card stat"><b>{{ headline.lessons }}</b><span>lessons in {{ headline.days }} days</span></div>
+  <div class="card stat"><b>{{ headline.mastered }}</b><span>error{{ headline.mastered|pluralize }} mastered</span></div>
+  <div class="card stat" {% if headline.avoided_pct is not None %}style="border-color:var(--green)"{% endif %}>
+    {% if headline.avoided_pct is not None %}
+      <b style="color:var(--green)">{{ headline.avoided_pct }}%</b><span>targeted errors avoided, last {{ headline.window_days }} days<br>{{ headline.avoided }} of {{ headline.targeted }}</span>
+    {% else %}
+      <b>—</b><span>targeted errors avoided<br>no targeted lessons yet</span>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h3>Errors avoided per lesson <small>the last {{ chart|length }} lesson{{ chart|length|pluralize }} that targeted errors</small></h3>
+    {% if chart %}
+      <div class="chart">
+        {% for bar in chart %}<i class="{% if bar.good %}g{% endif %}" style="height:{{ bar.height }}%" title="{{ bar.title }}"></i>{% endfor %}
+      </div>
+      <div class="chart-x"><span>{{ chart_from|date:"j M" }}</span><span>{{ chart_to|date:"j M" }}</span></div>
+    {% else %}
+      <div class="empty">No lesson has targeted an error yet. They start once your file has due errors.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Speaking pace <small>last {{ headline.days }} days</small></h3>
+    <div class="skills">
+      <div class="skill"><span>Words / min</span><div class="bar"><i style="width:{% widthratio pace.wpm|default:0 150 100 %}%"></i></div><span class="lvl">{{ pace.wpm|default:"—" }}</span></div>
+      <div class="skill"><span>Fillers</span><div class="bar"><i class="a" style="width:{% widthratio pace.filler_pct|default:0 30 100 %}%"></i></div><span class="lvl">{% if pace.filler_pct is not None %}{{ pace.filler_pct }}%{% else %}—{% endif %}</span></div>
+      <div class="skill"><span>Your share</span><div class="bar"><i style="width:{{ pace.share_pct|default:0 }}%"></i></div><span class="lvl">{% if pace.share_pct is not None %}{{ pace.share_pct }}%{% else %}—{% endif %}</span></div>
+    </div>
+    <p class="hint" style="margin-top:14px;font-size:13px">Native conversational pace is 120–150 wpm. You should be doing about 70% of the talking.</p>
+    <div class="skills" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)">
+      <div class="skill"><span>Your file</span><div class="bar"><i class="a" style="width:{% widthratio counts.mastered counts.active|add:counts.mastered|default:1 100 %}%"></i></div><span class="lvl">{{ counts.active }}</span></div>
+    </div>
+    <p class="hint" style="font-size:13px">{{ counts.active }} active error{{ counts.active|pluralize }}, {{ counts.due }} due today · {{ counts.vocab_target }} words to learn, {{ counts.vocab_acquired }} acquired</p>
+  </div>
+</div>
+
+<div class="card" id="review-box" style="margin-top:16px">
+  {% include "core/_progress_review.html" %}
+</div>
+
+{% if checkpoint %}
+<div class="card" style="margin-top:16px">
+  <h3>Last checkpoint <small>{{ checkpoint.taken_at|date:"j M Y" }}</small></h3>
+  <div class="cp-levels">
+    {% for level in checkpoint_levels %}<span class="cp-level"><b>{{ level.estimate }}</b>{{ level.name }}</span>{% endfor %}
+  </div>
+  <p class="note">{{ checkpoint.report_es|linebreaksbr }}</p>
+  {% if checkpoint.lesson_id %}<p style="margin-top:12px"><a class="btn" href="{% url 'lessons:report' checkpoint.lesson_id %}">See the full checkpoint</a></p>{% endif %}
+</div>
+{% else %}
+<div class="card" style="margin-top:16px">
+  <h3>Checkpoints</h3>
+  <div class="empty">No checkpoint yet. One is scheduled 28 days after your first lesson, and it's what sets your official level.</div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:16px">
+  <h3>What this costs to run <small>estimated from list prices</small></h3>
+  <div class="grid g3 stats">
+    <div class="stat"><b>${{ usage.today.cost|floatformat:2 }}</b><span>today · {{ usage.today.calls }} calls</span></div>
+    <div class="stat"><b>${{ usage.week.cost|floatformat:2 }}</b><span>last 7 days · {{ usage.week.calls }} calls</span></div>
+    <div class="stat"><b>${{ usage.all.cost|floatformat:2 }}</b><span>all time · {{ usage.all.calls }} calls</span></div>
+  </div>
+  {% if usage.by_kind %}
+  <div class="skills" style="margin-top:14px">
+    {% for kind, cost in usage.by_kind.items %}
+      <div class="skill"><span>{{ kind|capfirst }}</span><div class="bar"><i style="width:{% widthratio cost usage.all.cost 100 %}%"></i></div><span class="lvl">${{ cost|floatformat:2 }}</span></div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .stat span{display:block;line-height:1.4}
+  .chart i{transition:none;cursor:help}
+  .note{font-family:var(--serif);font-size:16px;line-height:1.55;margin-top:12px}
+  .cp-levels{display:flex;gap:22px;flex-wrap:wrap}
+  .cp-level{display:flex;flex-direction:column;font-size:12px;color:var(--ink-3)}
+  .cp-level b{font-family:var(--serif);font-size:26px;font-weight:500;color:var(--ink)}
+  .review-lists{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
+  .review-lists h4{font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .review-lists ul{list-style:none;display:flex;flex-direction:column;gap:8px;font-size:14px;color:var(--ink-2)}
+  .review-lists li{padding-left:14px;position:relative;line-height:1.45}
+  .review-lists li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%}
+  .review-lists .up li::before{background:var(--green)}
+  .review-lists .stuck li::before{background:var(--red)}
+  .review-lists .focus li::before{background:var(--amber)}
+  #review-box.htmx-request{opacity:.5}
+  .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:26px 0}
+  .spinner{width:38px;height:38px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--amber);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:860px){.review-lists{grid-template-columns:1fr}}
+</style>
+{% endblock %}

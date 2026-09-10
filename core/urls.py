@@ -17,5 +17,6 @@ urlpatterns = [
     path("vocabulary/<int:item_id>/status/", views.vocab_status, name="vocab_status"),
     path("errors/", views.errors_page, name="errors"),
     path("errors/<int:error_id>/status/", views.error_status, name="error_status"),
-    path("progress/", views.placeholder, {"section": "progress"}, name="progress"),
+    path("progress/", views.progress_page, name="progress"),
+    path("progress/review/", views.progress_review, name="progress_review"),
 ]

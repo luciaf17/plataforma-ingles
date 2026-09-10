@@ -62,15 +62,23 @@ class UsageRecordingTests(TestCase):
         self.assertEqual(ApiCall.estimate_cost("chat", "mystery-model", prompt_tokens=1_000_000), 2.0)
 
 
-class ProgressPlaceholderTests(TestCase):
+class ProgressCostTests(TestCase):
+    fixtures = ["seed"]
+
     def test_progress_page_shows_the_running_cost(self):
         from django.contrib.auth import get_user_model
 
-        get_user_model().objects.create_user("lu", password="pw")
+        from learners.models import Learner
+
+        user = get_user_model().objects.create_user("lu", password="pw")
+        learner = Learner.for_user(user)
+        learner.goal_statement = "interviews"
+        learner.save()
         self.client.login(username="lu", password="pw")
         with override_settings(OPENAI_PRICES=PRICES):
             ApiCall.record("chat", "gpt-4o-test", prompt_tokens=1_000_000, purpose="tutor")
         html = self.client.get("/progress/").content.decode()
-        self.assertIn("API cost today", html)
+        self.assertIn("What this costs to run", html)
         self.assertIn("$2.00", html)
-        self.assertIn("Chat", html)
+        self.assertIn("today · 1 calls", html)
+        self.assertIn(">Chat<", html)
