@@ -20,6 +20,12 @@ EVENTS = ("lesson_start", "phase_start", "turn")
 
 _recast_re = re.compile(r"\*(.+?)\*")
 
+CHECKPOINT_RULE = (
+    "CHECKPOINT MODE. You are the examiner in the role given, not a teacher. Do not correct, do not recast, "
+    "do not repeat her sentences in a fixed form, do not use asterisks. React to the content only, ask the next "
+    "question from the prompts (harder each time), one follow-up at most. Two sentences per turn."
+)
+
 
 def phase_info(plan, phase_key, *, elapsed_in_phase_s=0):
     phases = plan.get("phases", [])
@@ -51,6 +57,8 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
             "goal": learner.goal_statement or "technical interviews and daily standups",
         },
         "plan": {
+            "kind": plan.get("kind", "lesson"),
+            "opening": plan.get("speaking_opening", ""),
             "title": plan.get("title", ""),
             "summary": plan.get("summary", ""),
             "tutor_role": plan.get("tutor_role", ""),
@@ -71,7 +79,12 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
         {"role": "system", "content": load_prompt("tutor")},
         {"role": "system", "content": "Class context (JSON):\n" + json.dumps(context, ensure_ascii=False, indent=2)},
     ]
-    turns = list(history if history is not None else lesson.turns.order_by("sequence"))[-MAX_HISTORY_TURNS:]
+    if plan.get("kind") == "checkpoint":
+        messages.append({"role": "system", "content": CHECKPOINT_RULE})
+    if history is None:
+        # Voiced listening lines and written answers are stored as turns but are not conversation.
+        history = lesson.turns.exclude(phase__in=["listening", "writing"]).order_by("sequence")
+    turns = list(history)[-MAX_HISTORY_TURNS:]
     for turn in turns:
         role = "assistant" if turn.role == "tutor" else "user"
         messages.append({"role": role, "content": turn.text})

@@ -10,15 +10,18 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
-from ai import analyzer, client, minilesson, planner, tutor, vocab, writing
+from ai import analyzer, client, level_assessor, minilesson, planner, tutor, vocab, writing
 from learners.models import Learner
 
 from . import postprocess
 from .diff import change_count, diff_html
-from .models import ErrorItem, Lesson, LessonReport, Turn, VocabItem
+from .models import Checkpoint, ErrorItem, Lesson, LessonReport, Turn, VocabItem
 from .templatetags.lesson_extras import tutor_line
 
 log = logging.getLogger("lessons.views")
+
+
+NON_CONVERSATION_PHASES = ("listening", "writing")
 
 
 def learner_for(request):
@@ -108,7 +111,173 @@ def runner(request, lesson_id):
         return reading_runner(request, lesson)
     if lesson.skill == "listening":
         return listening_runner(request, lesson)
+    if lesson.skill == "checkpoint":
+        return checkpoint_runner(request, lesson)
     return speaking_runner(request, lesson)
+
+
+# --------------------------------------------------------------------------- checkpoint (spec 7c)
+
+CHECKPOINT_STEP_TITLES = {"listening": "Listening", "reading": "Reading", "writing": "Writing", "speaking": "Speaking"}
+
+
+def checkpoint_state(lesson):
+    plan = lesson.plan or {}
+    cp = plan.get("checkpoint") or {}
+    steps = cp.get("steps", ["listening", "reading", "writing", "speaking"])
+    progress = cp.get("progress", {})
+    current = next((s for s in steps if s not in progress), None)
+    return steps, progress, current
+
+
+def save_checkpoint_progress(lesson, step, data):
+    plan = lesson.plan or {}
+    cp = dict(plan.get("checkpoint") or {})
+    cp["progress"] = {**cp.get("progress", {}), step: data}
+    lesson.plan = {**plan, "checkpoint": cp}
+    lesson.save(update_fields=["plan"])
+
+
+def checkpoint_runner(request, lesson, *, error="", answers=None, text=""):
+    steps, progress, current = checkpoint_state(lesson)
+    plan = lesson.plan or {}
+    if current == "speaking":
+        return speaking_runner(request, lesson, checkpoint=True)
+    if current == "listening" and not audio_ready(plan.get("listening_task") or {}):
+        return render(request, "lessons/listening_audio.html", {"section": "today", "title": lesson.title, "lesson": lesson, "task": plan.get("listening_task") or {}})
+    task = plan.get(f"{current}_task") if current else None
+    context = {
+        "section": "today",
+        "title": lesson.title,
+        "lesson": lesson,
+        "plan": plan,
+        "steps": [{"key": s, "title": CHECKPOINT_STEP_TITLES[s], "done": s in progress, "current": s == current} for s in steps],
+        "current": current,
+        "task": task,
+        "paragraphs": [p.strip() for p in ((task or {}).get("text") or "").split("\n\n") if p.strip()] if current == "reading" else [],
+        "answers": answers or {},
+        "text": text,
+        "error": error,
+        "config": {
+            "segments": [s["url"] for s in (task or {}).get("segments", [])],
+            "listens": (task or {}).get("listens", 0),
+            "max_listens": (task or {}).get("max_listens", 2),
+            "listened_url": f"/lessons/{lesson.id}/listened/",
+            "vocab_url": f"/lessons/{lesson.id}/vocab/",
+            "glossary": (task or {}).get("glossary", []),
+        },
+    }
+    if current is None:
+        return render(request, "lessons/checkpoint_finish.html", context)
+    return render(request, "lessons/checkpoint.html", context)
+
+
+@login_required
+@require_POST
+def checkpoint_step(request, lesson_id, step):
+    """Hand in one mini-test. Comprehension is graded in code; writing and speaking are stored for the assessor."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "checkpoint":
+        return JsonResponse({"error": "Not a checkpoint"}, status=409)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    steps, progress, current = checkpoint_state(lesson)
+    if step != current:
+        return redirect("lessons:runner", lesson_id=lesson.id)
+    _start(lesson)
+    plan = lesson.plan or {}
+
+    if step in ("listening", "reading"):
+        task = plan.get(f"{step}_task") or {}
+        answers = {}
+        for q in task.get("questions", []):
+            raw = request.POST.get(f"q{q['id']}")
+            if raw is not None and raw.isdigit():
+                answers[q["id"]] = int(raw)
+        if any(q["id"] not in answers for q in task.get("questions", [])):
+            return checkpoint_runner(request, lesson, error="Answer every question before continuing.", answers=answers)
+        score, rows = grade_questions(task, answers)
+        save_checkpoint_progress(lesson, step, {"score": score, "total": len(rows), "questions": rows, "listens": task.get("listens", 0)})
+    elif step == "writing":
+        text = (request.POST.get("text") or "").strip()
+        if len(text.split()) < 40:
+            return checkpoint_runner(request, lesson, error="Write at least 40 words.", text=text)
+        Turn.objects.create(lesson=lesson, role=Turn.Role.LEARNER, text=text, phase="writing", sequence=next_sequence(lesson))
+        save_checkpoint_progress(lesson, "writing", {"text": text, "word_count": len(text.split())})
+    elif step == "speaking":
+        turns = list(lesson.turns.filter(phase="practice").order_by("sequence"))
+        if not any(t.role == Turn.Role.LEARNER for t in turns):
+            return redirect("lessons:runner", lesson_id=lesson.id)
+        save_checkpoint_progress(lesson, "speaking", {"turns": [{"role": t.role, "text": t.text} for t in turns]})
+    return redirect("lessons:runner", lesson_id=lesson.id)
+
+
+def checkpoint_materials(lesson):
+    """What the assessor reads: per skill, the material plus what she did with it."""
+    plan = lesson.plan or {}
+    progress = (plan.get("checkpoint") or {}).get("progress", {})
+    materials = {}
+    for skill in ("listening", "reading"):
+        task = plan.get(f"{skill}_task") or {}
+        done = progress.get(skill)
+        if not done:
+            continue
+        questions = [
+            {"type": q["type"], "question": q["question"], "correct": q["options"][q["answer_index"]], "hers": q["options"][q["chosen"]] if q.get("chosen") is not None else None, "ok": q["ok"]}
+            for q in done.get("questions", [])
+        ]
+        content = "\n".join(f"{l['speaker']}: {l['text']}" for l in task.get("lines", [])) if skill == "listening" else task.get("text", "")
+        materials[skill] = {"headline": task.get("headline", ""), "content": content, "questions": questions, "score": done.get("score"), "total": done.get("total")}
+    if progress.get("writing"):
+        materials["writing"] = {"task": plan.get("writing_task") or {}, "text": progress["writing"]["text"]}
+    if progress.get("speaking"):
+        materials["speaking"] = {"role": plan.get("tutor_role", ""), "turns": progress["speaking"]["turns"]}
+    return materials
+
+
+@login_required
+@require_POST
+def checkpoint_finish(request, lesson_id):
+    """All steps done: assess, store the Checkpoint, overwrite the learner's levels (spec 7c)."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "checkpoint":
+        return JsonResponse({"error": "Not a checkpoint"}, status=409)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return _hx_redirect(request, f"/lessons/{lesson.id}/report/")
+    steps, progress, current = checkpoint_state(lesson)
+    if current is not None:
+        return redirect("lessons:runner", lesson_id=lesson.id)
+    learner = lesson.learner
+    previous = {s: getattr(learner, f"cefr_{s}") for s in level_assessor.SKILLS}
+    try:
+        assessment = level_assessor.assess(checkpoint_materials(lesson), target_level=learner.target_level, previous=previous, lesson_id=lesson.id)
+    except client.AIUnavailable as exc:
+        log.error("assessment failed for lesson %s: %s", lesson.id, exc)
+        return render(request, "lessons/_checkpoint_error.html", {"lesson": lesson, "error": str(exc)}, status=503)
+
+    checkpoint = Checkpoint.objects.create(learner=learner, lesson=lesson, results={**assessment.results, "overall": assessment.overall_estimate, "previous": previous}, report_es=assessment.report_es)
+    changed = []
+    for skill, result in assessment.results.items():
+        if result["assessed"] and result["estimate"]:
+            setattr(learner, f"cefr_{skill}", level_assessor.base_level(result["estimate"]))
+            changed.append(f"cefr_{skill}")
+    if changed:
+        learner.save(update_fields=changed)
+    lesson.status = Lesson.Status.ANALYZED
+    lesson.completed_at = timezone.now()
+    if lesson.started_at:
+        lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
+    lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
+    LessonReport.objects.update_or_create(
+        lesson=lesson,
+        defaults={
+            "summary_es": assessment.report_es,
+            "strengths": [],
+            "focus_next": [g for r in assessment.results.values() for g in r["gaps_to_target"]][:3],
+            "raw_analysis": {"checkpoint_id": checkpoint.id, "assessment": assessment.raw, "_meta": {"cefr_signal": {"estimate": assessment.overall_estimate}, "new_error_ids": [], "recycled_error_ids": [], "avoided_error_ids": [], "prompt_tokens": assessment.prompt_tokens, "completion_tokens": assessment.completion_tokens}},
+        },
+    )
+    return _hx_redirect(request, f"/lessons/{lesson.id}/report/")
 
 
 # --------------------------------------------------------------------------- text mini-lesson (module 15)
@@ -210,7 +379,7 @@ def listening_runner(request, lesson):
 def listening_audio(request, lesson_id):
     """Voice every line of the script (two voices for dialogues), once. Called by HTMX on load."""
     lesson = own_lesson(request, lesson_id)
-    if lesson.skill != "listening":
+    if lesson.skill not in ("listening", "checkpoint"):
         return JsonResponse({"error": "Not a listening lesson"}, status=409)
     task = listening_task(lesson)
     runner_url = f"/lessons/{lesson.id}/"
@@ -222,7 +391,7 @@ def listening_audio(request, lesson_id):
             if line["id"] in segments:
                 continue
             audio = client.speak(line["text"], voice=line["voice"], instructions=LISTENING_VOICE_INSTRUCTIONS, purpose="listening", lesson_id=lesson.id)
-            turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=f"{line['speaker']}: {line['text']}", phase="practice", sequence=next_sequence(lesson))
+            turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=f"{line['speaker']}: {line['text']}", phase="listening", sequence=next_sequence(lesson))
             turn.audio_file.save(f"listening-{lesson.id}-{line['id']}.mp3", ContentFile(audio), save=True)
             segments[line["id"]] = {"line_id": line["id"], "url": turn.audio_file.url}
             # Save as we go so a failure halfway keeps what was voiced.
@@ -533,11 +702,12 @@ def writing_submit(request, lesson_id):
     return redirect("lessons:report", lesson_id=lesson.id)
 
 
-def speaking_runner(request, lesson):
+def speaking_runner(request, lesson, checkpoint=False):
     plan = lesson.plan or {}
     elapsed = int((timezone.now() - lesson.started_at).total_seconds()) if lesson.started_at else 0
     phase_key, _ = current_phase_key(plan, elapsed)
-    turns = list(lesson.turns.order_by("sequence"))
+    # Voiced listening lines and written answers are turns too, but not conversation.
+    turns = list(lesson.turns.exclude(phase__in=NON_CONVERSATION_PHASES).order_by("sequence"))
     context = {
         "section": "speaking",
         "title": plan.get("title") or lesson.title,
@@ -547,6 +717,7 @@ def speaking_runner(request, lesson):
         "turns": [{"role": t.role, "text": t.text, "html": tutor_line(t.text) if t.role == "tutor" else None} for t in turns],
         "targeted": plan.get("targeted_errors", []),
         "hints": plan.get("if_stuck_hints", []),
+        "checkpoint": checkpoint,
         "config": {
             "lesson_id": lesson.id,
             "turn_url": f"/lessons/{lesson.id}/turn/",
@@ -621,6 +792,18 @@ def report(request, lesson_id):
     lesson_report = LessonReport.objects.filter(lesson=lesson).first()
     if lesson_report is None:
         return redirect("lessons:analyzing", lesson_id=lesson.id)
+    if lesson.skill == "checkpoint":
+        checkpoint = Checkpoint.objects.filter(lesson=lesson).first()
+        results = (checkpoint.results if checkpoint else {})
+        progress = ((lesson.plan or {}).get("checkpoint") or {}).get("progress", {})
+        skills = [
+            {"key": s, "title": CHECKPOINT_STEP_TITLES[s], **(results.get(s) or {}), "previous": (results.get("previous") or {}).get(s, ""), "score": (progress.get(s) or {}).get("score"), "total": (progress.get(s) or {}).get("total")}
+            for s in level_assessor.SKILLS if (results.get(s) or {}).get("assessed")
+        ]
+        return render(request, "lessons/checkpoint_report.html", {
+            "section": "today", "title": lesson.title, "lesson": lesson, "checkpoint": checkpoint, "report": lesson_report,
+            "skills": skills, "overall": results.get("overall", ""), "target": lesson.learner.target_level,
+        })
     meta = (lesson_report.raw_analysis or {}).get("_meta", {})
     ids = meta.get("new_error_ids", []) + meta.get("recycled_error_ids", []) + meta.get("avoided_error_ids", [])
     by_id = {e.id: e for e in ErrorItem.objects.filter(learner=lesson.learner, id__in=ids)}

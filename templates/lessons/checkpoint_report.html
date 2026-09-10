@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Checkpoint · {{ lesson.scheduled_for|date:"D j M" }} · overall <b>{{ overall }}</b> · target {{ target }}</p>
+  </div>
+  <a class="btn" href="{% url 'core:today' %}">Back to Today</a>
+</div>
+
+<div class="card today" style="margin-bottom:16px">
+  <div class="kicker">Your examiner's feedback</div>
+  <p class="note">{{ report.summary_es|linebreaksbr }}</p>
+</div>
+
+<div class="grid g2 cp-skills">
+  {% for s in skills %}
+    <div class="card">
+      <h3>{{ s.title }} <small>{% if s.score is not None %}{{ s.score }} of {{ s.total }} correct{% endif %}</small></h3>
+      <div class="level-row">
+        <b class="{% if s.estimate|slice:':2' >= target %}green{% else %}amber{% endif %}">{{ s.estimate }}</b>
+        {% if s.previous %}<span class="pill">was {{ s.previous }}</span>{% else %}<span class="pill">first measurement</span>{% endif %}
+      </div>
+      {% if s.evidence %}
+        <p class="sub">Evidence</p>
+        <ul class="evidence">{% for e in s.evidence %}<li>{{ e }}</li>{% endfor %}</ul>
+      {% endif %}
+      <p class="sub">{% if s.gaps_to_target %}What separates you from {{ target }}{% else %}At target{% endif %}</p>
+      {% if s.gaps_to_target %}
+        <ul class="gaps">{% for g in s.gaps_to_target %}<li>{{ g }}</li>{% endfor %}</ul>
+      {% else %}
+        <p class="hint">Nothing concrete to add for this skill. Keep it up.</p>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .note{font-family:var(--serif);font-size:17px;line-height:1.55}
+  .level-row{display:flex;align-items:center;gap:12px;margin:4px 0 12px}
+  .level-row b{font-family:var(--serif);font-size:38px;font-weight:500;line-height:1}
+  .level-row b.green{color:var(--green)} .level-row b.amber{color:var(--amber)}
+  .sub{font-size:12px;color:var(--ink-3);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.04em}
+  .evidence{list-style:none;display:flex;flex-direction:column;gap:6px}
+  .evidence li{font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:8px 12px;background:var(--bg);border-left:2px solid var(--line);border-radius:6px}
+  .gaps{padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+  .cp-skills{grid-template-columns:repeat(2,1fr)}
+  @media (max-width:860px){.cp-skills{grid-template-columns:1fr}}
+</style>
+{% endblock %}

@@ -5,12 +5,19 @@
 <div class="head">
   <div>
     <h1>{{ title }}</h1>
-    <p>Speaking · {{ lesson.track.name }} track · Tutor voice: Sage{% if plan.tutor_role %} · Role: {{ plan.tutor_role }}{% endif %}</p>
+    <p>{% if checkpoint %}Checkpoint · Speaking · 6 minutes · the interviewer will not correct you{% else %}Speaking · {{ lesson.track.name }} track · Tutor voice: Sage{% endif %}{% if plan.tutor_role %} · Role: {{ plan.tutor_role }}{% endif %}</p>
   </div>
+  {% if checkpoint %}
+  <form method="post" action="{% url 'lessons:checkpoint_step' lesson.id 'speaking' %}" onsubmit="return confirm('Finish the interview?')">
+    {% csrf_token %}
+    <button class="btn primary" type="submit" id="end-lesson">Finish interview</button>
+  </form>
+  {% else %}
   <form method="post" action="{% url 'lessons:end' lesson.id %}" onsubmit="return confirm('End the lesson and analyze it?')">
     {% csrf_token %}
     <button class="btn" type="submit" id="end-lesson">End lesson</button>
   </form>
+  {% endif %}
 </div>
 
 <div class="lesson">

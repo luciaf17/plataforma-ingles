@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static lesson_extras %}
+
+{% block content %}
+<div class="head">
+  <div><h1>{{ title }}</h1><p>Monthly checkpoint · four short tests, nothing is corrected · {{ plan.duration_min }} min</p></div>
+</div>
+
+<div class="stepper">
+  {% for s in steps %}<span class="step {% if s.done %}done{% elif s.current %}now{% endif %}"><i>{{ forloop.counter }}</i>{{ s.title }}</span>{% endfor %}
+</div>
+
+<div class="card stage cp">
+  {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+  {% if current == "listening" %}
+    <div class="kicker">Listening · 4 questions · two listens</div>
+    <h2 class="headline">{{ task.headline }}</h2>
+    <p class="setting">{{ task.setting }}</p>
+    <div class="player" id="player">
+      <button class="play" id="play" type="button" aria-label="Play"><svg viewBox="0 0 24 24" id="play-icon"><path d="M7 4v16l13-8z" fill="currentColor"/></svg></button>
+      <div class="player-body">
+        <div class="bar progress"><i id="progress" style="width:0%"></i></div>
+        <div class="player-meta"><span id="player-status">Ready</span><span><button type="button" class="speed" id="speed">1.0×</button><span class="pill amber" id="listens">2 listens left</span></span></div>
+      </div>
+    </div>
+    <form method="post" action="{% url 'lessons:checkpoint_step' lesson.id 'listening' %}" id="listening-form">
+      {% csrf_token %}
+      <ol class="questions">
+        {% for q in task.questions %}
+          <li><p class="q-text"><span class="pill">{{ q.type }}</span> {{ q.question }}</p>
+            <div class="options">{% for o in q.options %}<label><input type="radio" name="q{{ q.id }}" value="{{ forloop.counter0 }}" {% if answers|get_item:q.id == forloop.counter0 %}checked{% endif %} required> {{ o }}</label>{% endfor %}</div></li>
+        {% endfor %}
+      </ol>
+      <div class="bar-row"><small class="hint">Next: reading.</small><button class="btn primary" type="submit" id="submit">Continue</button></div>
+    </form>
+    <audio id="audio" preload="auto"></audio>
+    {{ config|json_script:"listening-config" }}
+
+  {% elif current == "reading" %}
+    <div class="kicker">Reading · {{ task.format }} · 4 questions</div>
+    <h2 class="headline">{{ task.headline }}</h2>
+    <div class="text" id="reading-text">{% for p in paragraphs %}<p>{{ p|linebreaksbr }}</p>{% endfor %}</div>
+    <form method="post" action="{% url 'lessons:checkpoint_step' lesson.id 'reading' %}" id="reading-form">
+      {% csrf_token %}
+      <ol class="questions" style="margin-top:20px">
+        {% for q in task.questions %}
+          <li><p class="q-text"><span class="pill">{{ q.type }}</span> {{ q.question }}</p>
+            <div class="options">{% for o in q.options %}<label><input type="radio" name="q{{ q.id }}" value="{{ forloop.counter0 }}" {% if answers|get_item:q.id == forloop.counter0 %}checked{% endif %} required> {{ o }}</label>{% endfor %}</div></li>
+        {% endfor %}
+      </ol>
+      <div class="bar-row"><small class="hint">Next: writing.</small><button class="btn primary" type="submit" id="submit">Continue</button></div>
+    </form>
+
+  {% elif current == "writing" %}
+    <div class="kicker">Writing · {{ task.target_words_min|default:100 }}–{{ task.target_words_max|default:140 }} words</div>
+    <p class="prompt">{{ task.prompt }}</p>
+    {% if task.context %}<blockquote class="context">{{ task.context|linebreaksbr }}</blockquote>{% endif %}
+    {% if task.structure_hint %}<p class="hint" style="margin-top:8px"><b>Structure:</b> {{ task.structure_hint }}</p>{% endif %}
+    <form method="post" action="{% url 'lessons:checkpoint_step' lesson.id 'writing' %}" id="writing-form">
+      {% csrf_token %}
+      <textarea name="text" id="text" rows="10" spellcheck="false" placeholder="Write here.">{{ text }}</textarea>
+      <div class="bar-row"><span class="counter" id="counter">0 words</span><button class="btn primary" type="submit" id="submit">Continue to the interview</button></div>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .stepper{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+  .step{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:99px;font-size:13px;color:var(--ink-3)}
+  .step i{width:22px;height:22px;border-radius:50%;background:var(--panel-2);display:grid;place-items:center;font-style:normal;font-size:12px}
+  .step.now{color:var(--ink);border-color:var(--amber)} .step.now i{background:var(--amber);color:#1a1509}
+  .step.done{color:var(--green)} .step.done i{background:var(--green-soft);color:var(--green)}
+  .cp{min-height:0}
+  .cp .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .headline{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.2;margin-bottom:8px}
+  .setting{font-family:var(--serif);font-size:16px;color:var(--ink-2)}
+  .text{font-family:var(--serif);font-size:17px;line-height:1.65}
+  .text p{margin-bottom:14px}
+  .prompt{font-family:var(--serif);font-size:19px;line-height:1.4}
+  .context{margin-top:12px;font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:12px 14px;background:var(--bg);border-left:2px solid var(--line);border-radius:6px;line-height:1.5}
+  .player{display:flex;gap:16px;align-items:center;margin-top:18px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .play{width:64px;height:64px;border-radius:50%;background:var(--amber);color:#1a1509;display:grid;place-items:center;flex:none;box-shadow:0 0 0 8px var(--amber-soft)}
+  .play svg{width:26px;height:26px}
+  .play:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .player-body{flex:1;display:flex;flex-direction:column;gap:10px}
+  .progress{height:8px}
+  .player-meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--ink-2)}
+  .speed{border:1px solid var(--line);border-radius:99px;padding:2px 9px;font-size:12px;color:var(--ink-2);margin-right:8px}
+  .questions{list-style:none;display:flex;flex-direction:column;margin-top:14px}
+  .questions>li{padding:12px 0;border-bottom:1px solid var(--line)}
+  .questions>li:last-child{border:0}
+  .q-text{font-family:var(--serif);font-size:16px;margin-bottom:8px}
+  .options{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-2)}
+  .options label{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;cursor:pointer}
+  .options label:hover{background:var(--panel-2)}
+  .options input{accent-color:var(--amber);margin-top:3px}
+  textarea#text{width:100%;margin-top:14px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:14px;font-family:var(--serif);font-size:17px;line-height:1.5;resize:vertical;min-height:220px}
+  .bar-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}
+  .counter{font-variant-numeric:tabular-nums;color:var(--ink-3);font-size:13px}
+  .form-error{color:var(--red);margin-bottom:10px;font-size:13px}
+</style>
+{% endblock %}
+
+{% block scripts %}
+{% if current == "listening" %}<script src="{% static 'js/listening.js' %}"></script>{% endif %}
+{% if current == "writing" %}
+<script>
+  (function () {
+    const text = document.getElementById("text"), counter = document.getElementById("counter");
+    function count() { const v = text.value.trim(); counter.textContent = (v ? v.split(/\s+/).length : 0) + " words"; }
+    text.addEventListener("input", count); count();
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -630,6 +630,123 @@ def generate_plan(learner, selection):
     return plan
 
 
+# --------------------------------------------------------------------------- checkpoint (spec 7c)
+
+CHECKPOINT_EVERY_DAYS = 28
+CHECKPOINT_MINUTES = 30
+CHECKPOINT_MIN_WORDS = {"listening": 200, "reading": 200}
+
+CHECKPOINT_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "listening_task": LISTENING_PLAN_SCHEMA["properties"]["listening_task"],
+        "reading_task": READING_PLAN_SCHEMA["properties"]["reading_task"],
+        "writing_task": WRITING_PLAN_SCHEMA["properties"]["writing_task"],
+        "speaking": {
+            "type": "object",
+            "properties": {
+                "role": {"type": "string"},
+                "opening": {"type": "string"},
+                "prompts": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["role", "opening", "prompts"],
+            "additionalProperties": False,
+        },
+    },
+    "required": ["title", "summary", "listening_task", "reading_task", "writing_task", "speaking"],
+    "additionalProperties": False,
+}
+
+
+def checkpoint_due(learner, on=None):
+    """A checkpoint is due 28 days after the last one, or 28 days after the first
+    lesson when there has never been one (spec 7c)."""
+    from lessons.models import Checkpoint
+
+    on = on or timezone.localdate()
+    if learner.lessons.filter(skill="checkpoint", status__in=[Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS, Lesson.Status.COMPLETED]).exists():
+        return False
+    last = Checkpoint.objects.filter(learner=learner).order_by("-taken_at").first()
+    if last:
+        return (on - timezone.localtime(last.taken_at).date()).days >= CHECKPOINT_EVERY_DAYS
+    first = finished_lessons(learner).order_by("scheduled_for").values_list("scheduled_for", flat=True).first()
+    return bool(first) and (on - first).days >= CHECKPOINT_EVERY_DAYS
+
+
+@transaction.atomic
+def prepare_checkpoint(learner, *, on=None, short=False):
+    """A 30-minute checkpoint lesson with four mini-tests. `short` is the
+    onboarding version (speaking and writing only)."""
+    on = on or timezone.localdate()
+    track = Track.objects.filter(slug="work").first() or choose_track(learner)
+    recent = recent_topic_titles(learner)
+    context = {
+        "cefr": {skill: learner.cefr_for(skill) for skill in SKILLS},
+        "target_level": learner.target_level,
+        "goal": learner.goal_statement or "technical interviews and daily standups",
+        "recent_topics": recent,
+        "short": short,
+    }
+    messages = [
+        {"role": "system", "content": load_prompt("checkpoint")},
+        {"role": "user", "content": json.dumps(context, ensure_ascii=False, indent=2)},
+    ]
+    chat = client.chat_json(messages, CHECKPOINT_PLAN_SCHEMA, schema_name="checkpoint_plan", temperature=0.6, purpose="checkpoint")
+    data = chat.data
+    steps = ["speaking", "writing"] if short else ["listening", "reading", "writing", "speaking"]
+    if not short:
+        l_words = sum(len((l.get("text") or "").split()) for l in (data.get("listening_task") or {}).get("lines", []))
+        r_words = len(((data.get("reading_task") or {}).get("text") or "").split())
+        if l_words < CHECKPOINT_MIN_WORDS["listening"] or r_words < CHECKPOINT_MIN_WORDS["reading"]:
+            log.warning("checkpoint texts too short (listening %d, reading %d); regenerating once", l_words, r_words)
+            messages.append({"role": "assistant", "content": chat.content})
+            messages.append({"role": "user", "content": (
+                f"The listening script has {l_words} words and the reading text {r_words}. The script needs at least "
+                f"{CHECKPOINT_MIN_WORDS['listening']} words and the text at least {CHECKPOINT_MIN_WORDS['reading']}. "
+                "Rewrite the whole plan with full-length material, same theme and structure."
+            )})
+            retry = client.chat_json(messages, CHECKPOINT_PLAN_SCHEMA, schema_name="checkpoint_plan", temperature=0.6, purpose="checkpoint")
+            l2 = sum(len((l.get("text") or "").split()) for l in (retry.data.get("listening_task") or {}).get("lines", []))
+            r2 = len(((retry.data.get("reading_task") or {}).get("text") or "").split())
+            if l2 + r2 > l_words + r_words:
+                data, chat = retry.data, retry
+    speaking = data.get("speaking") or {}
+    plan = {
+        "kind": "checkpoint",
+        "title": (data.get("title") or "").strip() or ("Placement checkpoint" if short else "Monthly checkpoint"),
+        "summary": (data.get("summary") or "").strip(),
+        "tutor_role": (speaking.get("role") or "an interviewer").strip(),
+        "phases": [
+            {"key": "practice", "title": "Interview", "minutes": 6, "tutor_goal": "Find the ceiling: raise the difficulty until she struggles.", "prompts": [p.strip() for p in speaking.get("prompts", []) if p.strip()]},
+        ],
+        "speaking_opening": (speaking.get("opening") or "").strip(),
+        "listening_task": normalise_listening_task(data.get("listening_task")) if "listening" in steps else None,
+        "reading_task": normalise_reading_task(data.get("reading_task")) if "reading" in steps else None,
+        "writing_task": data.get("writing_task"),
+        "mini_lesson_card": None,
+        "checkpoint": {"steps": steps, "progress": {}, "short": short},
+        "targeted_errors": [],
+        "targeted_error_ids": [],
+        "vocabulary": [],
+        "due_vocab_ids": [],
+        "if_stuck_hints": [],
+        "skill": "checkpoint",
+        "track": track.slug,
+        "topic_id": None,
+        "grammar_topic_id": None,
+        "grammar_reason": "",
+        "duration_min": 12 if short else CHECKPOINT_MINUTES,
+        "generated_at": timezone.now().isoformat(),
+        "_meta": {"model": chat.model, "prompt_tokens": chat.prompt_tokens, "completion_tokens": chat.completion_tokens},
+    }
+    return Lesson.objects.create(
+        learner=learner, track=track, topic=None, grammar_topic=None, skill="checkpoint",
+        status=Lesson.Status.PLANNED, plan=plan, scheduled_for=on,
+    )
+
+
 # --------------------------------------------------------------------------- drills (spec 7b: "Drill this now")
 
 DRILL_SCHEMA = {
@@ -722,6 +839,9 @@ def prepare_next_lesson(learner, *, on=None, skill=None, track=None, topic=None,
         return existing, False
     if existing and existing.status != Lesson.Status.PLANNED:
         raise ValueError("Today's lesson is already in progress; it cannot be replaced")
+    if skill is None and not force and checkpoint_due(learner, on):
+        log.info("checkpoint due for %s; preparing it instead of a regular lesson", learner)
+        return prepare_checkpoint(learner, on=on), True
 
     selection = select(learner, on=on, skill=skill, track=track, topic=topic, duration=duration, request=request, rng=rng)
     plan = generate_plan(learner, selection)
