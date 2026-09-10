@@ -160,5 +160,7 @@ LOGGING = {
         "lessons": {"handlers": ["console"], "level": "INFO", "propagate": False},
         # Tracebacks of 500s reach the platform logs when DEBUG is off.
         "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
+        # CSRF and host-header rejections carry their reason here.
+        "django.security": {"handlers": ["console"], "level": "WARNING", "propagate": False},
     },
 }
