@@ -11,7 +11,6 @@ urlpatterns = [
     # Each one gets replaced by its real view in the module that builds it.
     path("listening/", views.placeholder, {"section": "listening"}, name="listening"),
     path("reading/", views.placeholder, {"section": "reading"}, name="reading"),
-    path("writing/", views.placeholder, {"section": "writing"}, name="writing"),
     path("grammar/", views.placeholder, {"section": "grammar"}, name="grammar"),
     path("vocabulary/", views.placeholder, {"section": "vocabulary"}, name="vocabulary"),
     path("errors/", views.placeholder, {"section": "errors"}, name="errors"),

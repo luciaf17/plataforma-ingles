@@ -175,9 +175,10 @@ class Selection:
     due_errors: list = field(default_factory=list)
     due_vocab: list = field(default_factory=list)
     recent_topics: list = field(default_factory=list)
+    request: str = ""
 
 
-def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEFAULT_DURATION, rng=random):
+def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEFAULT_DURATION, request="", rng=random):
     on = on or timezone.localdate()
     skill = skill or choose_skill(learner, on)
     if isinstance(track, str):
@@ -197,6 +198,7 @@ def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEF
         due_errors=list(ErrorItem.objects.due_for(learner, on=on)[:MAX_DUE_ERRORS]),
         due_vocab=list(VocabItem.objects.due_for(learner, on=on)[:MAX_DUE_VOCAB]),
         recent_topics=recent_topic_titles(learner),
+        request=(request or "").strip()[:500],
     )
 
 
@@ -250,8 +252,31 @@ SPEAKING_PLAN_SCHEMA = {
     "additionalProperties": False,
 }
 
-# One schema per skill (spec 9.2). Listening / reading / writing land with their runners.
-PLAN_SCHEMAS = {"speaking": SPEAKING_PLAN_SCHEMA}
+WRITING_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **SPEAKING_PLAN_SCHEMA["properties"],
+        "writing_task": {
+            "type": "object",
+            "properties": {
+                "format": {"type": "string"},
+                "prompt": {"type": "string"},
+                "context": {"type": "string"},
+                "target_words_min": {"type": "integer"},
+                "target_words_max": {"type": "integer"},
+                "must_use_vocabulary": {"type": "array", "items": {"type": "string"}},
+                "structure_hint": {"type": "string"},
+            },
+            "required": ["format", "prompt", "context", "target_words_min", "target_words_max", "must_use_vocabulary", "structure_hint"],
+            "additionalProperties": False,
+        },
+    },
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["writing_task"],
+    "additionalProperties": False,
+}
+
+# One schema per skill (spec 9.2). Listening / reading land with their runners.
+PLAN_SCHEMAS = {"speaking": SPEAKING_PLAN_SCHEMA, "writing": WRITING_PLAN_SCHEMA}
 
 
 def build_context(learner, selection):
@@ -291,6 +316,7 @@ def build_context(learner, selection):
         ],
         "due_vocab": [{"term": v.term, "definition_en": v.definition_en, "status": v.status} for v in selection.due_vocab],
         "recent_topics": selection.recent_topics,
+        "learner_request": selection.request or None,
         "phases": [{"key": key, "minutes": minutes} for key, minutes in phase_minutes(selection.skill, selection.duration).items()],
     }
 
@@ -324,6 +350,8 @@ def normalise_plan(data, learner, selection):
         "vocabulary": data.get("vocabulary", []),
         "due_vocab_ids": [v.id for v in selection.due_vocab],
         "if_stuck_hints": data.get("if_stuck_hints", []),
+        "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
+        "learner_request": selection.request or "",
         "skill": selection.skill,
         "track": selection.track.slug,
         "topic_id": selection.topic.id,
@@ -356,27 +384,26 @@ def generate_plan(learner, selection):
 # --------------------------------------------------------------------------- entry point
 
 
-def lesson_for(learner, on):
-    """Today's lesson if it exists and has not been finished."""
-    return (
-        learner.lessons.filter(scheduled_for=on, status__in=[Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS])
-        .order_by("-created_at")
-        .first()
-    )
+def lesson_for(learner, on, skill=None):
+    """Today's open lesson (planned or in progress), optionally for one skill."""
+    qs = learner.lessons.filter(scheduled_for=on, status__in=[Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS])
+    if skill:
+        qs = qs.filter(skill=skill)
+    return qs.order_by("-created_at").first()
 
 
 @transaction.atomic
-def prepare_next_lesson(learner, *, on=None, skill=None, track=None, topic=None, duration=DEFAULT_DURATION, force=False, rng=random):
+def prepare_next_lesson(learner, *, on=None, skill=None, track=None, topic=None, duration=DEFAULT_DURATION, force=False, request="", rng=random):
     """Leave today's lesson in state `planned`. Idempotent: a second call
     returns the same lesson. `force` replaces an unstarted plan (the manual picker)."""
     on = on or timezone.localdate()
-    existing = lesson_for(learner, on)
+    existing = lesson_for(learner, on, skill=skill)
     if existing and not force:
         return existing, False
     if existing and existing.status != Lesson.Status.PLANNED:
         raise ValueError("Today's lesson is already in progress; it cannot be replaced")
 
-    selection = select(learner, on=on, skill=skill, track=track, topic=topic, duration=duration, rng=rng)
+    selection = select(learner, on=on, skill=skill, track=track, topic=topic, duration=duration, request=request, rng=rng)
     plan = generate_plan(learner, selection)
 
     if existing:

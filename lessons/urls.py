@@ -6,6 +6,8 @@ app_name = "lessons"
 
 urlpatterns = [
     path("speaking/", views.speaking_today, name="speaking"),
+    path("writing/", views.writing_today, name="writing"),
+    path("lessons/<int:lesson_id>/write/", views.writing_submit, name="writing_submit"),
     path("lessons/<int:lesson_id>/", views.runner, name="runner"),
     path("lessons/<int:lesson_id>/turn/", views.turn, name="turn"),
     path("lessons/<int:lesson_id>/tutor/", views.tutor_prompt, name="tutor"),

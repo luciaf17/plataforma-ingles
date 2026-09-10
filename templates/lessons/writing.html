@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Writing · {{ lesson.track.name }} track · {{ task.format|default:"Free text" }} · {{ task.target_words_min|default:150 }}–{{ task.target_words_max|default:250 }} words{% if lesson.grammar_topic %} · Mini-lesson: {{ lesson.grammar_topic.title }}{% endif %}</p>
+  </div>
+</div>
+
+<div class="lesson writing">
+  <div class="card stage">
+    <div class="task">
+      <div class="kicker">Your task</div>
+      <p class="prompt">{{ task.prompt|default:"Write about today's topic." }}</p>
+      {% if task.context %}
+        <blockquote class="context">{{ task.context|linebreaksbr }}</blockquote>
+      {% endif %}
+      {% if task.structure_hint %}<p class="hint" style="margin-top:10px"><b>Structure:</b> {{ task.structure_hint }}</p>{% endif %}
+    </div>
+
+    {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+
+    <form method="post" action="{% url 'lessons:writing_submit' lesson.id %}" id="writing-form">
+      {% csrf_token %}
+      <textarea name="text" id="text" rows="14" placeholder="Write here. Don't translate from Spanish; think in short English sentences." spellcheck="false">{{ draft }}</textarea>
+      <div class="bar-row">
+        <span class="counter" id="counter" data-min="{{ task.target_words_min|default:150 }}" data-max="{{ task.target_words_max|default:250 }}">0 words</span>
+        <button class="btn primary" type="submit" id="submit">Hand it in</button>
+      </div>
+      <small class="hint">Handing in ends the lesson: you get a corrected version, a native upgrade, and every error goes to your file.</small>
+    </form>
+  </div>
+
+  <div class="aside">
+    {% if task.must_use_vocabulary %}
+    <div class="card">
+      <h3>Use these</h3>
+      <ul class="plan">
+        {% for v in task.must_use_vocabulary %}<li><span>{{ v }}</span><span class="pill" data-term="{{ v|lower }}">pending</span></li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="card">
+      <h3>Targeted today</h3>
+      {% if targeted %}
+        <ul class="plan">
+          {% for t in targeted %}
+            <li><span><s>{{ t.learner_produced }}</s><br>{{ t.correction }}</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="hint">Nothing from your file is due today.</p>
+      {% endif %}
+    </div>
+    {% if lesson.grammar_topic %}
+    <div class="card">
+      <h3>Mini-lesson</h3>
+      <p class="hint"><b>{{ lesson.grammar_topic.title }}</b></p>
+      {% for ex in lesson.grammar_topic.examples|slice:":2" %}
+        <p class="hint" style="margin-top:8px"><s>{{ ex.wrong }}</s> → {{ ex.right }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if hints %}
+    <div class="card">
+      <h3>If you get stuck</h3>
+      <p class="hint">Try: {% for h in hints %}<b>"{{ h }}"</b>{% if not forloop.last %} or {% endif %}{% endfor %}.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .writing .stage{min-height:0}
+  .task .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .task .prompt{font-family:var(--serif);font-size:19px;line-height:1.4}
+  .task .context{margin-top:12px;font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:12px 14px;background:var(--bg);border-left:2px solid var(--line);border-radius:6px;line-height:1.5}
+  #writing-form{margin-top:18px;display:flex;flex-direction:column;gap:10px}
+  textarea#text{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:14px;font-family:var(--serif);font-size:17px;line-height:1.5;resize:vertical;min-height:300px}
+  textarea#text:focus{outline:2px solid var(--blue);outline-offset:1px}
+  .bar-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .counter{font-variant-numeric:tabular-nums;color:var(--ink-3);font-size:13px}
+  .counter.ok{color:var(--green)} .counter.over{color:var(--amber)}
+  .form-error{color:var(--red);margin-top:12px;font-size:13px}
+  .plan li s{color:var(--ink-3);text-decoration-color:var(--red)}
+  .plan li .pill.green{color:var(--green);border-color:transparent;background:var(--green-soft)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const text = document.getElementById("text");
+    const counter = document.getElementById("counter");
+    const min = +counter.dataset.min, max = +counter.dataset.max;
+    const terms = Array.from(document.querySelectorAll("[data-term]"));
+    function update() {
+      const value = text.value.trim();
+      const words = value ? value.split(/\s+/).length : 0;
+      counter.textContent = words + " words · target " + min + "–" + max;
+      counter.className = "counter" + (words >= min && words <= max ? " ok" : words > max ? " over" : "");
+      const lower = value.toLowerCase();
+      terms.forEach((pill) => {
+        const stem = pill.dataset.term.replace(/^to /, "");
+        const used = lower.includes(stem);
+        pill.textContent = used ? "used" : "pending";
+        pill.classList.toggle("green", used);
+      });
+    }
+    text.addEventListener("input", update);
+    update();
+    document.getElementById("writing-form").addEventListener("submit", () => {
+      document.getElementById("submit").disabled = true;
+      document.getElementById("submit").textContent = "Correcting…";
+    });
+  })();
+</script>
+{% endblock %}

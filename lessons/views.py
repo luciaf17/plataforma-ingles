@@ -8,10 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from ai import analyzer, client, planner, tutor
+from ai import analyzer, client, planner, tutor, writing
 from learners.models import Learner
 
 from . import postprocess
+from .diff import change_count, diff_html
 from .models import ErrorItem, Lesson, LessonReport, Turn
 from .templatetags.lesson_extras import tutor_line
 
@@ -49,33 +50,120 @@ def current_phase_key(plan, elapsed_seconds):
 # --------------------------------------------------------------------------- pages
 
 
-@login_required
-def speaking_today(request):
-    """Sidebar entry: today's speaking lesson, prepared lazily if needed (spec 4.1)."""
+def skill_today(request, skill):
+    """Sidebar entry for a skill: today's open lesson for it, prepared lazily if needed (spec 4.1)."""
     learner = learner_for(request)
     today = timezone.localdate()
-    lesson = planner.lesson_for(learner, today)
+    lesson = planner.lesson_for(learner, today, skill=skill)
     if lesson is None:
         try:
-            lesson, _ = planner.prepare_next_lesson(learner, on=today, skill="speaking")
+            lesson, _ = planner.prepare_next_lesson(learner, on=today, skill=skill)
         except (client.AIUnavailable, planner.NothingToPlan) as exc:
-            log.error("could not prepare today's lesson: %s", exc)
-            return render(request, "lessons/unavailable.html", {"section": "speaking", "title": "Speaking", "error": str(exc)}, status=503)
+            log.error("could not prepare today's %s lesson: %s", skill, exc)
+            return render(request, "lessons/unavailable.html", {"section": skill, "title": skill.capitalize(), "error": str(exc)}, status=503)
     return redirect("lessons:runner", lesson_id=lesson.id)
 
 
 @login_required
-def runner(request, lesson_id):
-    lesson = own_lesson(request, lesson_id)
-    if lesson.status == Lesson.Status.ANALYZED:
-        return redirect("lessons:report", lesson_id=lesson.id)
-    if lesson.status == Lesson.Status.COMPLETED:
-        return redirect("lessons:analyzing", lesson_id=lesson.id)
+def speaking_today(request):
+    return skill_today(request, "speaking")
+
+
+@login_required
+def writing_today(request):
+    return skill_today(request, "writing")
+
+
+def _start(lesson):
     if lesson.status == Lesson.Status.PLANNED:
         lesson.status = Lesson.Status.IN_PROGRESS
         lesson.started_at = timezone.now()
         lesson.save(update_fields=["status", "started_at"])
 
+
+@login_required
+def runner(request, lesson_id):
+    """One URL per lesson; the template depends on the skill."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    if lesson.status == Lesson.Status.COMPLETED:
+        return redirect("lessons:analyzing", lesson_id=lesson.id)
+    _start(lesson)
+    if lesson.skill == "writing":
+        return writing_runner(request, lesson)
+    return speaking_runner(request, lesson)
+
+
+def writing_runner(request, lesson):
+    plan = lesson.plan or {}
+    task = plan.get("writing_task") or {}
+    draft = lesson.turns.filter(role=Turn.Role.LEARNER).order_by("-sequence").first()
+    context = {
+        "section": "writing",
+        "title": plan.get("title") or lesson.title,
+        "lesson": lesson,
+        "plan": plan,
+        "task": task,
+        "targeted": plan.get("targeted_errors", []),
+        "hints": plan.get("if_stuck_hints", []),
+        "draft": draft.text if draft else "",
+        "error": request.GET.get("error", ""),
+    }
+    return render(request, "lessons/writing.html", context)
+
+
+@login_required
+@require_POST
+def writing_submit(request, lesson_id):
+    """The learner hands in the text: correct it, write the file, show the report."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "writing":
+        return JsonResponse({"error": "Not a writing lesson"}, status=409)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    text = (request.POST.get("text") or "").strip()
+    if len(text.split()) < 20:
+        return render(request, "lessons/writing.html", {
+            "section": "writing", "title": lesson.title, "lesson": lesson, "plan": lesson.plan or {},
+            "task": (lesson.plan or {}).get("writing_task") or {}, "targeted": (lesson.plan or {}).get("targeted_errors", []),
+            "hints": (lesson.plan or {}).get("if_stuck_hints", []), "draft": text,
+            "error": "Write at least 20 words before handing it in.",
+        }, status=422)
+    _start(lesson)
+    # Keep the submission even if the corrector fails; a retry reuses it.
+    turn = lesson.turns.filter(role=Turn.Role.LEARNER).order_by("-sequence").first()
+    if turn is None or turn.text != text:
+        turn = Turn.objects.create(lesson=lesson, role=Turn.Role.LEARNER, text=text, phase="practice", sequence=next_sequence(lesson))
+    try:
+        result = writing.correct(lesson, text)
+    except client.AIUnavailable as exc:
+        log.error("writing correction failed for lesson %s: %s", lesson.id, exc)
+        return render(request, "lessons/writing.html", {
+            "section": "writing", "title": lesson.title, "lesson": lesson, "plan": lesson.plan or {},
+            "task": (lesson.plan or {}).get("writing_task") or {}, "targeted": (lesson.plan or {}).get("targeted_errors", []),
+            "hints": (lesson.plan or {}).get("if_stuck_hints", []), "draft": text,
+            "error": f"The corrector is unavailable right now ({exc}). Your text is saved; try again in a moment.",
+        }, status=503)
+    lesson.status = Lesson.Status.COMPLETED
+    lesson.completed_at = timezone.now()
+    if lesson.started_at:
+        lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
+    lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
+    result.analysis.raw = {
+        **result.analysis.raw,
+        "writing": {
+            "original_text": text,
+            "corrected_text": result.corrected_text,
+            "upgraded_text": result.upgraded_text,
+            "upgrade_notes_es": result.upgrade_notes_es,
+        },
+    }
+    postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    return redirect("lessons:report", lesson_id=lesson.id)
+
+
+def speaking_runner(request, lesson):
     plan = lesson.plan or {}
     elapsed = int((timezone.now() - lesson.started_at).total_seconds()) if lesson.started_at else 0
     phase_key, _ = current_phase_key(plan, elapsed)
@@ -171,8 +259,17 @@ def report(request, lesson_id):
         return [by_id[i] for i in meta.get(key, []) if i in by_id]
 
     learner_turns = lesson.turns.filter(role=Turn.Role.LEARNER)
+    writing_data = (lesson_report.raw_analysis or {}).get("writing")
+    if writing_data:
+        writing_data = {
+            **writing_data,
+            "diff_html": diff_html(writing_data.get("original_text", ""), writing_data.get("corrected_text", "")),
+            "changes": change_count(writing_data.get("original_text", ""), writing_data.get("corrected_text", "")),
+            "word_count": len(writing_data.get("original_text", "").split()),
+        }
     context = {
-        "section": "speaking",
+        "section": lesson.skill if lesson.skill in ("speaking", "writing") else "speaking",
+        "writing": writing_data,
         "title": lesson.title,
         "lesson": lesson,
         "report": lesson_report,

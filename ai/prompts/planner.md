@@ -12,6 +12,7 @@ You will receive a JSON object with:
 - `due_errors`: mistakes from her file that are due for review. Each has an `id`, what she produced, the correction, and how many times it has happened.
 - `due_vocab`: words from her file to plant in the class.
 - `recent_topics`: titles of her last classes. Do not repeat them or anything too close to them.
+- `learner_request`: optional. Something she asked for today in her own words ("I have an interview at a fintech on Friday", "I want to practise saying no to my tech lead"). When present it wins over `topic`: build the class around what she asked, keep the grammar point and the due errors.
 - `phases`: the five phases with their minutes, fixed. You fill in what happens in each.
 
 Return only the JSON object described by the schema.
@@ -31,6 +32,19 @@ The class has five phases with fixed minutes. For each one give a `title` (short
 - **practice**: the main activity for the skill, on the `topic`. For speaking this is a role play or a structured conversation: the tutor takes a role (interviewer, tech lead, colleague, client) and the prompts are the questions that role would ask, in order of increasing difficulty. This is where the due errors get elicited; write the prompts so that they trigger them. Plant the `due_vocab` here too.
 - **drill**: short, fast questions aimed directly at the due errors. Drier tone. Each prompt is one question that forces one targeted structure; the tutor expects one-sentence answers and corrects on the spot.
 - **wrap_up**: the tutor names two things that went well and one thing to work on tomorrow, and says goodbye. Since the tutor will decide the specifics live, the prompts here are the template it should follow.
+
+## Writing classes
+
+When `skill` is `writing`, the practice phase is one writing task instead of a conversation, and you also return `writing_task`:
+
+- `format`: a real format from her work or life. For the work track: a pull request description, a reply to a Slack message from a tech lead, a README intro, an incident update, an email to a client, a comment on a code review. For the general track: an email to a landlord, a review, a message to a friend explaining a plan, a short opinion post.
+- `prompt`: the instruction, one or two sentences, in English, addressed to her.
+- `context`: the material she is reacting to, when the format needs one: the Slack message she has to answer, the ticket the PR closes, the client's question. Write it in full, realistic, 40 to 120 words. Empty string if the task needs none.
+- `target_words_min` / `target_words_max`: 150 to 250 for a 20-minute class; scale with `duration_min`. Short formats (Slack reply) can be 80 to 120.
+- `must_use_vocabulary`: three to five terms from `due_vocab` or the topic's seed vocabulary that the task should force her to use.
+- `structure_hint`: one sentence on how a good version is organised ("Context, what changed, how to test, one open question").
+
+The task must make the targeted errors necessary, the same rule as speaking: if she drags "I have 5 years working", the task asks about experience; if she drags "depends of", the task asks for a decision that depends on something. For writing, the `phases` still exist but the runner only uses `mini_lesson` and `practice`; keep warm-up, drill and wrap-up prompts short.
 
 ## Other fields
 

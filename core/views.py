@@ -21,7 +21,6 @@ log = logging.getLogger("core.views")
 SECTIONS = {
     "listening": ("Listening", "Two listens max. You'll see the transcript after you answer."),
     "reading": ("Reading", "Real formats: issues, docs, emails, engineering blogs."),
-    "writing": ("Writing", "You'll get a corrected version, a native \"upgrade\", and every error goes into your file."),
     "grammar": ("Grammar", "Built from your own errors, not a textbook index."),
     "vocabulary": ("Vocabulary", "Words you looked up, words the tutor planted, and words you've started using on your own."),
     "errors": ("My errors", "Every error you've made, where it came from, and how close it is to being gone."),
@@ -92,8 +91,9 @@ def prepare_today(request):
     track = request.POST.get("track") or None
     duration = int(request.POST.get("duration") or planner.DEFAULT_DURATION)
     topic = request.POST.get("topic") or None
+    request_text = (request.POST.get("request") or "").strip()[:500]
     if request.POST.get("surprise"):
-        skill, track, topic, duration = None, None, None, planner.DEFAULT_DURATION
+        skill, track, topic, duration, request_text = None, None, None, planner.DEFAULT_DURATION, ""
     if skill and skill not in settings.LESSON_SKILLS_ENABLED:
         skill = None
     if duration not in PICKER_DURATIONS:
@@ -102,7 +102,8 @@ def prepare_today(request):
     error = None
     try:
         lesson, _ = planner.prepare_next_lesson(
-            learner, on=today_date, skill=skill, track=track, topic=int(topic) if topic else None, duration=duration, force=force
+            learner, on=today_date, skill=skill, track=track, topic=int(topic) if topic else None, duration=duration, force=force,
+            request=request_text,
         )
     except (client.AIUnavailable, planner.NothingToPlan, ValueError, Topic.DoesNotExist, Track.DoesNotExist) as exc:
         log.error("prepare_today failed: %s", exc)

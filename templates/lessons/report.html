@@ -59,6 +59,24 @@
   </div>
 </div>
 
+{% if writing %}
+<div class="grid g2" style="margin-top:16px">
+  <div class="card">
+    <h3>Your text, corrected <small>{{ writing.word_count }} words · {{ writing.changes }} change{{ writing.changes|pluralize }}</small></h3>
+    <div class="written diff">{{ writing.diff_html }}</div>
+  </div>
+  <div class="card upgraded">
+    <h3>How a native would write it <small>study this one</small></h3>
+    <div class="written">{{ writing.upgraded_text|linebreaksbr }}</div>
+    {% if writing.upgrade_notes_es %}
+      <ul class="notes">
+        {% for n in writing.upgrade_notes_es %}<li>{{ n }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if new_errors %}
 <div class="card" style="margin-top:16px;padding:6px 10px">
   <h3 style="padding:14px 10px 4px">New errors <small>{{ new_errors|length }} · added to your file</small></h3>
@@ -121,6 +139,11 @@
   .stat b.red{color:var(--red)} .stat b.amber{color:var(--amber)} .stat b.green{color:var(--green)}
   .stat b small{font-size:16px;color:var(--ink-3)}
   .plan li s{color:var(--ink-3);text-decoration-color:var(--red)}
+  .written{font-family:var(--serif);font-size:16px;line-height:1.6}
+  .diff del{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red);background:var(--red-soft);border-radius:3px}
+  .diff ins{color:var(--green);text-decoration:none;background:var(--green-soft);border-radius:3px}
+  .upgraded{border-color:var(--green)}
+  .notes{margin-top:14px;padding-left:18px;color:var(--ink-2);font-size:13px;display:flex;flex-direction:column;gap:6px}
   @media (max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
 </style>
 {% endblock %}
