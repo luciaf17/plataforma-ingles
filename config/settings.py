@@ -106,6 +106,9 @@ OPENAI_TTS_MODEL = env("OPENAI_TTS_MODEL", default="gpt-4o-mini-tts")
 OPENAI_TIMEOUT_SECONDS = env.float("OPENAI_TIMEOUT_SECONDS", default=60.0)
 OPENAI_MAX_RETRIES = env.int("OPENAI_MAX_RETRIES", default=3)
 
+# Skills the planner may schedule. Grows as each runner lands (spec 13).
+LESSON_SKILLS_ENABLED = env.list("LESSON_SKILLS_ENABLED", default=["speaking"])
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

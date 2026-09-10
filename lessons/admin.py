@@ -1,4 +1,7 @@
+import json
+
 from django.contrib import admin
+from django.utils.html import format_html
 
 from .models import Checkpoint, ErrorItem, Lesson, LessonReport, Turn, VocabItem
 
@@ -17,8 +20,37 @@ class LessonAdmin(admin.ModelAdmin):
     list_filter = ("skill", "status", "track")
     date_hierarchy = "scheduled_for"
     autocomplete_fields = ("topic", "grammar_topic")
-    readonly_fields = ("created_at",)
+    readonly_fields = ("created_at", "plan_pretty")
+    fields = (
+        ("learner", "scheduled_for", "status"),
+        ("skill", "track", "topic", "grammar_topic"),
+        ("started_at", "completed_at", "duration_seconds"),
+        "plan_pretty",
+        "plan",
+        "created_at",
+    )
     inlines = [TurnInline]
+
+    @admin.display(description="Plan (read-only)")
+    def plan_pretty(self, obj):
+        if not obj.plan:
+            return "—"
+        phases = "".join(
+            f"<li><b>{p['key']}</b> · {p['minutes']} min · {p.get('title', '')}<br>"
+            f"<i>{p.get('tutor_goal', '')}</i><ol>" + "".join(f"<li>{q}</li>" for q in p.get("prompts", [])) + "</ol></li>"
+            for p in obj.plan.get("phases", [])
+        )
+        targets = "".join(
+            f"<li>#{t['id']} <s>{t['learner_produced']}</s> → {t['correction']}<br><i>{t.get('how_to_elicit', '')}</i></li>"
+            for t in obj.plan.get("targeted_errors", [])
+        )
+        return format_html(
+            "<div style='max-width:900px;line-height:1.5'><h3 style='margin:0 0 6px'>{}</h3><p>{}</p>"
+            "<p><b>Tutor role:</b> {}</p><h4>Phases</h4><ul>{}</ul><h4>Targeted errors</h4><ul>{}</ul>"
+            "<details><summary>Raw JSON</summary><pre style='white-space:pre-wrap'>{}</pre></details></div>",
+            obj.plan.get("title", ""), obj.plan.get("summary", ""), obj.plan.get("tutor_role", ""),
+            format_html(phases), format_html(targets), json.dumps(obj.plan, ensure_ascii=False, indent=2),
+        )
 
 
 @admin.register(Turn)
