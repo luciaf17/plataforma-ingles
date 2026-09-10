@@ -39,6 +39,8 @@ Credentials for local dev: user `postgres`, password `postgres`, database `tutor
 
 ## Deploy (Railway)
 
+Production: https://web-production-2b555.up.railway.app (project `tutor-en`, service `web`). Deploys are pushed from the CLI with `railway up --service web`; static files are collected at start.
+
 The repo carries `railway.json` (build + start commands) and a `Procfile`. On every start the app runs migrations, then `manage.py bootstrap` (creates the superuser from env and loads the seed if the database is empty), then gunicorn.
 
 1. Create a Railway project from this GitHub repo and add a **PostgreSQL** service. Railway injects `DATABASE_URL`.
@@ -91,4 +93,4 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 7 | `ai/planner.py` | done |
 | 8 | speaking runner | done |
 | 9 | lesson report | done |
-| 10 | deploy | in progress |
+| 10 | deploy | done |
