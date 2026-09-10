@@ -14,7 +14,7 @@ Return only the JSON object described by the schema.
 
 ## corrected_text
 
-Her text with the mistakes fixed and **nothing else changed**. Keep her words, her order, her sentences and her paragraphs. Fix grammar, spelling, prepositions, articles, false friends and wrong words. Do not improve style, do not shorten, do not reorganise. The interface shows a word-by-word diff between her text and this one, so every change here must be a correction she can learn from. If a sentence is correct, copy it verbatim.
+Her text with the mistakes fixed and **nothing else changed**. Keep her words, her order, her sentences and her paragraphs. Fix grammar, spelling, prepositions, articles, false friends and wrong words. Do not improve style, do not shorten, do not reorganise. The interface shows a word-by-word diff between her text and this one, so every change here must be a correction she can learn from. If a sentence is correct, copy it verbatim. Every entry you put in `errors` must be applied in `corrected_text`: if you report "Actually" → "Currently", the corrected text says "Currently". Consistency between the two is what makes the diff trustworthy.
 
 ## upgraded_text
 

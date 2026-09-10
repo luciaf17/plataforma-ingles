@@ -44,6 +44,18 @@
         <div class="stat"><b class="green">{{ report.errors_avoided_count }}<small>/{{ targeted_count }}</small></b><span>targeted, avoided</span></div>
       </div>
     </div>
+    {% if writing %}
+    <div class="card">
+      <h3>Your text</h3>
+      <div class="skills">
+        <div class="skill"><span>Words</span><div class="bar"><i style="width:{% widthratio writing.word_count 250 100 %}%"></i></div><span class="lvl">{{ writing.word_count }}</span></div>
+        <div class="skill"><span>Changes</span><div class="bar"><i class="a" style="width:{% widthratio writing.changes 20 100 %}%"></i></div><span class="lvl">{{ writing.changes }}</span></div>
+      </div>
+      {% if cefr_signal.estimate %}
+        <p class="hint" style="margin-top:12px;font-size:13px"><span class="pill">Level signal · {{ cefr_signal.estimate }}</span> {{ cefr_signal.reasoning }}</p>
+      {% endif %}
+    </div>
+    {% else %}
     <div class="card">
       <h3>Speaking pace</h3>
       <div class="skills">
@@ -56,6 +68,7 @@
         <p class="hint" style="margin-top:8px;font-size:13px"><span class="pill">Level signal · {{ cefr_signal.estimate }}</span> {{ cefr_signal.reasoning }}</p>
       {% endif %}
     </div>
+    {% endif %}
   </div>
 </div>
 
