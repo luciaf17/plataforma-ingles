@@ -39,13 +39,20 @@ Credentials for local dev: user `postgres`, password `postgres`, database `tutor
 
 ## Deploy (Railway)
 
-Production: https://web-production-2b555.up.railway.app (project `tutor-en`, service `web`). Deploys are pushed from the CLI with `railway up --service web`; static files are collected at start.
+Production: https://web-production-2b555.up.railway.app (project `tutor-en`). Two services deploy from this repo with `railway up --service <name>`; their build and start commands live in the Railway service settings (Railway deprecated `railway.json`, and its IaC does not carry cron schedules yet):
 
-The repo carries `railway.json` (build + start commands) and a `Procfile`. On every start the app runs migrations, then `manage.py bootstrap` (creates the superuser from env and loads the seed if the database is empty), then gunicorn.
+| Service | Build | Start | Schedule |
+|---|---|---|---|
+| `web` | `pip install -r requirements.txt` | `collectstatic`, `migrate`, `bootstrap`, then gunicorn on `$PORT` | always on |
+| `cron` | same | `python manage.py prepare_next_lesson` | `0 6 * * *` UTC = 03:00 Buenos Aires |
 
-1. Create a Railway project from this GitHub repo and add a **PostgreSQL** service. Railway injects `DATABASE_URL`.
-2. Add a **volume** to the web service mounted at `/data`. Lesson audio is stored there.
-3. Set these variables on the web service:
+`bootstrap` creates the superuser from env and loads the seed when the database is empty, so a fresh environment needs no shell. The `cron` service shares secrets by reference (`${{web.SECRET_KEY}}`, `${{web.OPENAI_API_KEY}}`, `${{Postgres.DATABASE_URL}}`).
+
+To recreate from scratch:
+
+1. Create a Railway project, add a **PostgreSQL** service, and two empty services `web` and `cron`.
+2. Add a **volume** to `web` mounted at `/data` (lesson audio).
+3. Set these variables on `web`:
 
 ```
 SECRET_KEY=<long random string>
@@ -60,7 +67,10 @@ DJANGO_SUPERUSER_EMAIL=you@example.com
 TIME_ZONE=America/Argentina/Buenos_Aires
 ```
 
-4. Generate a public domain for the service. The microphone only works over HTTPS, which Railway provides.
+   and on `cron`: `SECRET_KEY`, `OPENAI_API_KEY`, `DATABASE_URL` by reference, `DEBUG=False`, `ALLOWED_HOSTS=*`, `SECURE_SSL_REDIRECT=False`, `TIME_ZONE`.
+4. Set the commands from the table above in each service's settings (or with `railway api` and `serviceInstanceUpdate`), and the cron schedule on `cron`.
+5. Generate a public domain for `web`. The microphone only works over HTTPS, which Railway provides.
+6. `railway up --service web` and `railway up --service cron`.
 
 Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
@@ -101,4 +111,4 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 15 | mini-lesson in text | done |
 | 16 | grammar | done |
 | 17 | errors + vocab | done |
-| 18 | cron | pending |
+| 18 | cron | done |
