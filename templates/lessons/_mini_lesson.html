@@ -1,0 +1,67 @@
+{% load lesson_extras %}
+{% if mini %}
+<div class="mini-lesson" id="mini-lesson">
+  <div class="mini-head">
+    <span class="pill amber">Mini-lesson · 4 min</span>
+    <b>{{ lesson.grammar_topic.title }}</b>
+  </div>
+  <p class="mini-explanation">{{ mini.explanation_en }}</p>
+  {% if mini.examples %}
+  <div class="mini-examples">
+    {% for e in mini.examples %}
+      <div class="ex"><s>{{ e.wrong }}</s> → <em>{{ e.right }}</em>{% if e.note_en %}<small>{{ e.note_en }}</small>{% endif %}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if mini_result %}
+    <div class="mini-done">
+      <p class="hint"><b>{{ mini_result.score }} of {{ mini_result.total }} right.</b>{% if mini_result.new_error_ids or mini_result.recycled_error_ids %} The misses are in your file.{% endif %}</p>
+      <ul class="mini-results">
+        {% for r in mini_result.results %}
+          <li class="{% if r.correct %}ok{% else %}miss{% endif %}">
+            <span class="sentence">{{ r.id }}. <b>{{ r.answer }}</b>{% if not r.correct %} → <em>{{ r.correction }}</em>{% endif %}</span>
+            {% if r.explanation_es %}<small>{{ r.explanation_es }}</small>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% else %}
+    <form hx-post="{{ mini_url }}" hx-target="#mini-lesson" hx-swap="outerHTML" hx-indicator="#mini-lesson" class="mini-form">
+      {% csrf_token %}
+      <p class="hint">Now you: complete the three sentences with the structure above.</p>
+      {% if mini_error %}<p class="form-error">{{ mini_error }}</p>{% endif %}
+      {% for ex in mini.exercises %}
+        <label class="mini-exercise">
+          <span class="sentence">{{ ex.id }}. {{ ex.sentence }} <small>{{ ex.cue }}</small></span>
+          <input type="text" name="ex{{ ex.id }}" value="{{ mini_answers|default_if_none:''|get_item:ex.id|default:'' }}" placeholder="fill the gap" autocomplete="off">
+        </label>
+      {% endfor %}
+      <div><button class="btn" type="submit">Check my sentences</button></div>
+    </form>
+  {% endif %}
+</div>
+<style>
+  .mini-lesson{border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:22px;background:var(--bg)}
+  .mini-lesson.htmx-request{opacity:.5}
+  .mini-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .mini-head b{font-size:15px}
+  .mini-explanation{font-family:var(--serif);font-size:16px;line-height:1.5;color:var(--ink)}
+  .mini-examples{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+  .mini-examples .ex{font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:8px 12px;background:var(--panel);border-radius:6px;border-left:2px solid var(--line)}
+  .mini-examples .ex s{text-decoration-color:var(--red)}
+  .mini-examples .ex em{color:var(--green);font-style:normal}
+  .mini-examples .ex small{display:block;color:var(--ink-3);font-family:var(--sans);font-size:12px;margin-top:2px}
+  .mini-form{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+  .mini-exercise{display:flex;flex-direction:column;gap:4px}
+  .mini-exercise .sentence{font-family:var(--serif);font-size:16px}
+  .mini-exercise .sentence small{color:var(--ink-3);font-family:var(--sans);font-size:12px}
+  .mini-exercise input{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:8px 10px;font:inherit;max-width:420px}
+  .mini-results{list-style:none;display:flex;flex-direction:column;gap:8px;margin-top:8px}
+  .mini-results .sentence{font-family:var(--serif);font-size:16px}
+  .mini-results li.ok b{color:var(--green)}
+  .mini-results li.miss b{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red)}
+  .mini-results li.miss em{color:var(--green);font-style:normal}
+  .mini-results small{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+</style>
+{% endif %}

@@ -207,6 +207,31 @@ def fluency_metrics(lesson):
 
 
 @transaction.atomic
+def record_errors(lesson, found_errors, *, confidence=None):
+    """Create or bump ErrorItems for a list of FoundError, outside a full analysis
+    (the text mini-lesson uses this mid-lesson). Returns (new, recycled)."""
+    today = srs.today()
+    now = timezone.now()
+    new, recycled = [], []
+    for found in found_errors:
+        item, created = record_error(lesson, found, today=today, now=now, confidence=confidence)
+        (new if created else recycled).append(item)
+    return new, recycled
+
+
+def attach_extra_errors(report, *, new_ids=(), recycled_ids=()):
+    """Add error ids recorded earlier in the lesson (mini-lesson) to the report's meta and counts."""
+    meta = dict((report.raw_analysis or {}).get("_meta", {}))
+    meta["new_error_ids"] = list(dict.fromkeys(list(meta.get("new_error_ids", [])) + list(new_ids)))
+    meta["recycled_error_ids"] = list(dict.fromkeys(list(meta.get("recycled_error_ids", [])) + list(recycled_ids)))
+    report.raw_analysis = {**(report.raw_analysis or {}), "_meta": meta}
+    report.new_errors_count = len(meta["new_error_ids"])
+    report.recycled_errors_count = len(meta["recycled_error_ids"])
+    report.save(update_fields=["raw_analysis", "new_errors_count", "recycled_errors_count"])
+    return report
+
+
+@transaction.atomic
 def apply_analysis(lesson, result, *, confidence=None):
     """Write the whole analysis into the file. `confidence` forces a level for
     every new error (writing lessons pass "high", spec 5.4)."""

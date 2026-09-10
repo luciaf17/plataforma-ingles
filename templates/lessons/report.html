@@ -85,6 +85,17 @@
   </div>
 </div>
 
+{% if mini %}
+<div class="card" style="margin-top:16px">
+  <h3>Mini-lesson <small>{{ mini.score }} of {{ mini.total }} right{% if lesson.grammar_topic %} · {{ lesson.grammar_topic.title }}{% endif %}</small></h3>
+  <ul class="plan mini-results">
+    {% for r in mini.results %}
+      <li><span class="{% if r.correct %}ok{% else %}miss{% endif %}"><b>{{ r.answer }}</b>{% if not r.correct %} → {{ r.correction }}{% if r.explanation_es %}<br><small>{{ r.explanation_es }}</small>{% endif %}{% endif %}</span><span class="pill {% if r.correct %}green{% else %}red{% endif %}">{% if r.correct %}right{% else %}fixed{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 {% if listening %}
 <div class="card" style="margin-top:16px">
   <h3>Comprehension <small>{{ listening.score }} of {{ listening.total }} correct · {{ listening.listens }} listen{{ listening.listens|pluralize }}</small></h3>
@@ -226,6 +237,9 @@
   .transcript-text b{font-family:var(--sans);font-size:12px;color:var(--ink-3);font-weight:500;margin-right:4px}
   .transcript-text mark{background:var(--green-soft);color:var(--green);border-radius:3px;padding:0 2px}
   .transcript-text mark.miss{background:var(--red-soft);color:var(--red)}
+  .mini-results li span.miss b{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red)}
+  .mini-results li span.ok b{color:var(--green)}
+  .mini-results small{color:var(--ink-3)}
   .notes{margin-top:14px;padding-left:18px;color:var(--ink-2);font-size:13px;display:flex;flex-direction:column;gap:6px}
   @media (max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
 </style>

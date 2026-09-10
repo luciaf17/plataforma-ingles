@@ -10,7 +10,7 @@ from django.utils.html import escape
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
-from ai import analyzer, client, planner, tutor, vocab, writing
+from ai import analyzer, client, minilesson, planner, tutor, vocab, writing
 from learners.models import Learner
 
 from . import postprocess
@@ -111,6 +111,58 @@ def runner(request, lesson_id):
     return speaking_runner(request, lesson)
 
 
+# --------------------------------------------------------------------------- text mini-lesson (module 15)
+
+
+def mini_lesson_card(lesson):
+    return (lesson.plan or {}).get("mini_lesson_card") or None
+
+
+def mini_lesson_context(lesson):
+    card = mini_lesson_card(lesson)
+    if not card or not card.get("exercises"):
+        return {"mini": None}
+    return {"mini": card, "mini_url": f"/lessons/{lesson.id}/mini-lesson/", "mini_result": card.get("result")}
+
+
+@login_required
+@require_POST
+def mini_lesson_check(request, lesson_id):
+    """Grade the three completion sentences; wrong ones go to the file with confidence high."""
+    lesson = own_lesson(request, lesson_id)
+    card = mini_lesson_card(lesson)
+    if not card or not card.get("exercises"):
+        return JsonResponse({"error": "This lesson has no mini-lesson card"}, status=409)
+    if card.get("result"):
+        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson)})
+    answers = {ex["id"]: (request.POST.get(f"ex{ex['id']}") or "").strip() for ex in card["exercises"]}
+    if any(not a for a in answers.values()):
+        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_error": "Fill in all three before checking."}, status=422)
+    _start(lesson)
+    grammar_topic = {"title": lesson.grammar_topic.title, "summary_es": lesson.grammar_topic.summary_es} if lesson.grammar_topic else None
+    try:
+        results, found = minilesson.check(card["exercises"], answers, grammar_topic=grammar_topic, lesson_id=lesson.id)
+    except client.AIUnavailable as exc:
+        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_error": f"Could not check right now ({exc}). Try again."}, status=503)
+    new, recycled = postprocess.record_errors(lesson, found, confidence="high")
+    result = {
+        "results": results,
+        "score": sum(1 for r in results if r["correct"]),
+        "total": len(results),
+        "new_error_ids": [e.id for e in new],
+        "recycled_error_ids": [e.id for e in recycled],
+    }
+    lesson.plan = {**lesson.plan, "mini_lesson_card": {**card, "result": result}}
+    lesson.save(update_fields=["plan"])
+    return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson)})
+
+
+def attach_mini_lesson(lesson, report):
+    result = (mini_lesson_card(lesson) or {}).get("result")
+    if result:
+        postprocess.attach_extra_errors(report, new_ids=result.get("new_error_ids", []), recycled_ids=result.get("recycled_error_ids", []))
+
+
 # --------------------------------------------------------------------------- listening
 
 
@@ -136,6 +188,7 @@ def listening_context(request, lesson, *, answers=None, error=""):
         "answers": answers or {},
         "error": error,
         "listens_left": max(0, task.get("max_listens", 2) - task.get("listens", 0)),
+        **mini_lesson_context(lesson),
         "config": {
             "segments": [s["url"] for s in task.get("segments", [])],
             "listens": task.get("listens", 0),
@@ -236,7 +289,7 @@ def listening_submit(request, lesson_id):
     if lesson.started_at:
         lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
     lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
-    LessonReport.objects.update_or_create(
+    report, _ = LessonReport.objects.update_or_create(
         lesson=lesson,
         defaults={
             "summary_es": summary,
@@ -248,6 +301,7 @@ def listening_submit(request, lesson_id):
             },
         },
     )
+    attach_mini_lesson(lesson, report)
     return redirect("lessons:report", lesson_id=lesson.id)
 
 
@@ -280,6 +334,7 @@ def reading_context(request, lesson, *, answers=None, production="", error=""):
         "production": production,
         "error": error,
         "config": {"vocab_url": f"/lessons/{lesson.id}/vocab/", "glossary": task.get("glossary", [])},
+        **mini_lesson_context(lesson),
     }
 
 
@@ -369,7 +424,8 @@ def reading_submit(request, lesson_id):
             "upgrade_notes_es": result.upgrade_notes_es,
         },
     }
-    postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    summary = postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    attach_mini_lesson(lesson, summary.report)
     return redirect("lessons:report", lesson_id=lesson.id)
 
 
@@ -421,6 +477,7 @@ def writing_runner(request, lesson):
         "hints": plan.get("if_stuck_hints", []),
         "draft": draft.text if draft else "",
         "error": request.GET.get("error", ""),
+        **mini_lesson_context(lesson),
     }
     return render(request, "lessons/writing.html", context)
 
@@ -471,7 +528,8 @@ def writing_submit(request, lesson_id):
             "upgrade_notes_es": result.upgrade_notes_es,
         },
     }
-    postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    summary = postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    attach_mini_lesson(lesson, summary.report)
     return redirect("lessons:report", lesson_id=lesson.id)
 
 
@@ -588,6 +646,7 @@ def report(request, lesson_id):
         "writing": writing_data,
         "reading": reading_data,
         "listening": listening_data,
+        "mini": (mini_lesson_card(lesson) or {}).get("result"),
         "title": lesson.title,
         "lesson": lesson,
         "report": lesson_report,

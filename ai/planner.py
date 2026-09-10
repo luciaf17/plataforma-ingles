@@ -252,10 +252,62 @@ SPEAKING_PLAN_SCHEMA = {
     "additionalProperties": False,
 }
 
+# Text skills teach the grammar point with a card instead of the tutor's voice (spec 4.1b, module 15).
+MINI_LESSON_CARD_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "explanation_en": {"type": "string"},
+        "examples": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"wrong": {"type": "string"}, "right": {"type": "string"}, "note_en": {"type": "string"}},
+                "required": ["wrong", "right", "note_en"],
+                "additionalProperties": False,
+            },
+        },
+        "exercises": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sentence": {"type": "string"},
+                    "cue": {"type": "string"},
+                    "answer": {"type": "string"},
+                    "accepted": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["sentence", "cue", "answer", "accepted"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["explanation_en", "examples", "exercises"],
+    "additionalProperties": False,
+}
+
+
+def normalise_mini_lesson_card(card):
+    card = dict(card or {})
+    exercises = []
+    for index, ex in enumerate(card.get("exercises", [])[:3]):
+        sentence = (ex.get("sentence") or "").strip()
+        answer = (ex.get("answer") or "").strip()
+        if not sentence or not answer or "___" not in sentence:
+            continue
+        accepted = [a.strip() for a in ex.get("accepted", []) if a and a.strip()]
+        exercises.append({"id": index + 1, "sentence": sentence, "cue": (ex.get("cue") or "").strip(), "answer": answer, "accepted": accepted})
+    card["exercises"] = exercises
+    card["examples"] = [e for e in card.get("examples", [])[:3] if e.get("wrong") and e.get("right")]
+    card["explanation_en"] = (card.get("explanation_en") or "").strip()
+    card.setdefault("result", None)
+    return card
+
+
 WRITING_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
         **SPEAKING_PLAN_SCHEMA["properties"],
+        "mini_lesson_card": MINI_LESSON_CARD_SCHEMA,
         "writing_task": {
             "type": "object",
             "properties": {
@@ -271,7 +323,7 @@ WRITING_PLAN_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": SPEAKING_PLAN_SCHEMA["required"] + ["writing_task"],
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["mini_lesson_card", "writing_task"],
     "additionalProperties": False,
 }
 
@@ -303,6 +355,7 @@ READING_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
         **SPEAKING_PLAN_SCHEMA["properties"],
+        "mini_lesson_card": MINI_LESSON_CARD_SCHEMA,
         "reading_task": {
             "type": "object",
             "properties": {
@@ -323,7 +376,7 @@ READING_PLAN_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": SPEAKING_PLAN_SCHEMA["required"] + ["reading_task"],
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["mini_lesson_card", "reading_task"],
     "additionalProperties": False,
 }
 
@@ -341,6 +394,7 @@ LISTENING_PLAN_SCHEMA = {
     "type": "object",
     "properties": {
         **SPEAKING_PLAN_SCHEMA["properties"],
+        "mini_lesson_card": MINI_LESSON_CARD_SCHEMA,
         "listening_task": {
             "type": "object",
             "properties": {
@@ -364,7 +418,7 @@ LISTENING_PLAN_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": SPEAKING_PLAN_SCHEMA["required"] + ["listening_task"],
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["mini_lesson_card", "listening_task"],
     "additionalProperties": False,
 }
 
@@ -523,6 +577,7 @@ def normalise_plan(data, learner, selection):
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
         "reading_task": normalise_reading_task(data.get("reading_task")) if selection.skill == "reading" else None,
         "listening_task": normalise_listening_task(data.get("listening_task")) if selection.skill == "listening" else None,
+        "mini_lesson_card": normalise_mini_lesson_card(data.get("mini_lesson_card")) if selection.skill != "speaking" and selection.grammar_topic else None,
         "learner_request": selection.request or "",
         "skill": selection.skill,
         "track": selection.track.slug,

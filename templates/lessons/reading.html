@@ -11,6 +11,7 @@
 
 <div class="lesson reading">
   <div class="card stage">
+    {% include "lessons/_mini_lesson.html" %}
     <div class="kicker">{{ task.format|default:"Text" }}</div>
     <h2 class="headline">{{ task.headline }}</h2>
     <div class="text" id="reading-text">

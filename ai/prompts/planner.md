@@ -33,6 +33,14 @@ The class has five phases with fixed minutes. For each one give a `title` (short
 - **drill**: short, fast questions aimed directly at the due errors. Drier tone. Each prompt is one question that forces one targeted structure; the tutor expects one-sentence answers and corrects on the spot.
 - **wrap_up**: the tutor names two things that went well and one thing to work on tomorrow, and says goodbye. Since the tutor will decide the specifics live, the prompts here are the template it should follow.
 
+## The mini-lesson card (writing, reading, listening)
+
+In classes without a tutor's voice, the mini-lesson is a card she reads and completes on her own, so also return `mini_lesson_card`:
+
+- `explanation_en`: two or three sentences in simple English explaining `grammar_topic`. Use the Spanish summary to know *why* she gets it wrong, but write in English. Concrete, no jargon beyond B1.
+- `examples`: three pairs `wrong` / `right` adapted to her world (work, code, clients, daily life), each with a `note_en` of one short line saying what changed.
+- `exercises`: exactly three sentences to complete, each with a gap written as `___`, a `cue` in parentheses telling her what to put (the verb in base form, the words to reorder, a Spanish hint), the `answer`, and `accepted`: other correct ways to fill the gap (contractions, equivalent tenses). Each sentence must force the structure of the grammar point; at least one should touch a targeted error if there is a matching one. Example for present perfect with since / for: sentence "I ___ at this company since 2021.", cue "(work)", answer "have worked", accepted ["'ve worked", "have been working", "'ve been working"].
+
 ## Writing classes
 
 When `skill` is `writing`, the practice phase is one writing task instead of a conversation, and you also return `writing_task`:
