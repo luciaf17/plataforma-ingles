@@ -6,6 +6,7 @@ app_name = "core"
 
 urlpatterns = [
     path("", views.today, name="today"),
+    path("onboarding/", views.onboarding, name="onboarding"),
     path("today/prepare/", views.prepare_today, name="prepare_today"),
     path("today/drop/<int:lesson_id>/", views.drop_lesson, name="drop_lesson"),
     # Placeholder routes so the sidebar is navigable before each screen exists.

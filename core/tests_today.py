@@ -18,6 +18,9 @@ class TodayBase(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("lu", password="pw", first_name="Lu")
         self.learner = Learner.for_user(self.user)
+        # Onboarded already, so Today renders instead of redirecting to the setup form.
+        self.learner.goal_statement = "technical interviews"
+        self.learner.save()
         self.client.login(username="lu", password="pw")
         self.today = timezone.localdate()
         self.work = Track.objects.get(slug="work")

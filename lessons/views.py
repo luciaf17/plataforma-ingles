@@ -261,6 +261,9 @@ def checkpoint_finish(request, lesson_id):
         if result["assessed"] and result["estimate"]:
             setattr(learner, f"cefr_{skill}", level_assessor.base_level(result["estimate"]))
             changed.append(f"cefr_{skill}")
+    if not learner.placement_done:
+        learner.placement_done = True
+        changed.append("placement_done")
     if changed:
         learner.save(update_fields=changed)
     lesson.status = Lesson.Status.ANALYZED

@@ -30,7 +30,7 @@
         {% endfor %}
         <div class="skill" style="margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)"><span>Program</span><div class="bar"><i style="width:{{ program.pct }}%"></i></div><span class="lvl">{{ program.mastered }}/{{ program.total }}</span></div>
       </div>
-      {% if not learner.placement_done %}<p class="hint" style="margin-top:12px;font-size:13px">No placement yet. Levels fill in after onboarding and your first checkpoint.</p>{% endif %}
+      {% if not learner.placement_done %}<p class="hint" style="margin-top:12px;font-size:13px">No placement yet. <a href="{% url 'core:onboarding' %}" style="color:var(--amber)">Set up your levels</a> or wait for your first checkpoint.</p>{% else %}<p class="hint" style="margin-top:12px;font-size:13px"><a href="{% url 'core:onboarding' %}" style="color:var(--ink-3)">Edit your goal and placement</a></p>{% endif %}
     </div>
   </div>
 </div>

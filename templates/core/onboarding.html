@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>Set up your file</h1><p>Five minutes now, so every lesson from tomorrow starts from where you actually are.</p></div>
+</div>
+
+<form method="post" class="onboarding">
+  {% csrf_token %}
+  <div class="grid g2">
+    <div class="card">
+      <h3>1 · Your placement <small>listening and reading</small></h3>
+      <p class="hint">Take the free <a href="https://www.efset.org/" target="_blank" rel="noopener">EF SET</a> (50 minutes). It gives you a CEFR level for listening and reading; enter them here. Speaking and writing are measured by a short checkpoint right after this form.</p>
+      {% if errors.levels %}<p class="form-error">{{ errors.levels }}</p>{% endif %}
+      <div class="fields">
+        <label>Listening
+          <select name="cefr_listening">
+            <option value="">Not taken yet</option>
+            {% for level in levels %}<option value="{{ level }}" {% if form.cefr_listening == level %}selected{% endif %}>{{ level }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Reading
+          <select name="cefr_reading">
+            <option value="">Not taken yet</option>
+            {% for level in levels %}<option value="{{ level }}" {% if form.cefr_reading == level %}selected{% endif %}>{{ level }}</option>{% endfor %}
+          </select>
+        </label>
+        <label style="grid-column:1/-1">Notes <span class="opt">(optional: EF SET score, date, anything to compare against later)</span>
+          <input type="text" name="placement_notes" maxlength="300" value="{{ form.placement_notes }}" placeholder="e.g. EF SET 58/100 on 10 Sep 2026">
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>2 · Your goal</h3>
+      <div class="fields">
+        <label>What should the tutor call you?
+          <input type="text" name="first_name" maxlength="40" value="{{ form.first_name }}" placeholder="Lu">
+        </label>
+        <label>Target level
+          <select name="target_level">
+            {% for level in targets %}<option value="{{ level }}" {% if form.target_level == level %}selected{% endif %}>{{ level }}</option>{% endfor %}
+          </select>
+        </label>
+        <label style="grid-column:1/-1">Why are you learning? <span class="opt">(one or two sentences, in any language; the planner reads this)</span>
+          <textarea name="goal_statement" rows="3" maxlength="400" placeholder="Technical interviews and daily standups in English.">{{ form.goal_statement }}</textarea>
+        </label>
+        {% if errors.goal %}<p class="form-error">{{ errors.goal }}</p>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>3 · Speaking and writing <small>a 12-minute checkpoint</small></h3>
+    <p class="hint">A six-minute interview and a short written task. Nothing is corrected; it only places your level. You can do it now or later from Today.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button class="btn primary" type="submit" name="next" value="checkpoint">Save and start the checkpoint</button>
+      <button class="btn" type="submit" name="next" value="skip">Save and go to Today</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block head %}
+<style>
+  .fields{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .fields label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink-2)}
+  .fields .opt{color:var(--ink-3);font-weight:400}
+  .fields select,.fields input,.fields textarea{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:9px 10px;font:inherit}
+  .fields textarea{font-family:var(--serif);font-size:15px;resize:vertical}
+  .form-error{color:var(--red);font-size:13px;margin:8px 0}
+  .onboarding a{color:var(--amber);text-decoration:underline}
+  @media (max-width:860px){.fields{grid-template-columns:1fr}}
+</style>
+{% endblock %}

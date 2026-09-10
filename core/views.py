@@ -10,7 +10,7 @@ from django.views.static import serve
 
 from ai import client, planner
 from ai.models import ApiCall
-from learners.models import GrammarTopic, Learner, Topic, Track
+from learners.models import CEFR_ORDER, GrammarTopic, Learner, Topic, Track
 from lessons.models import ErrorItem, Lesson, VocabItem
 
 from . import dashboard, grammar
@@ -54,9 +54,68 @@ def lesson_card_context(request, learner, lesson, error=None):
     }
 
 
+def needs_onboarding(learner):
+    """Never filled the form: no goal and no placement yet (spec 7c.1)."""
+    return not learner.placement_done and not learner.goal_statement
+
+
+ONBOARDING_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+ONBOARDING_TARGETS = ["B1", "B2", "C1"]
+
+
+@login_required
+def onboarding(request):
+    """Spec 13, module 20: EF SET levels, goal, target, then a short checkpoint."""
+    learner = Learner.for_user(request.user)
+    form = {
+        "cefr_listening": learner.cefr_listening,
+        "cefr_reading": learner.cefr_reading,
+        "placement_notes": learner.placement_notes,
+        "first_name": request.user.first_name,
+        "target_level": learner.target_level,
+        "goal_statement": learner.goal_statement,
+    }
+    errors = {}
+    if request.method == "POST":
+        form = {key: (request.POST.get(key) or "").strip() for key in form}
+        if form["cefr_listening"] and form["cefr_listening"] not in ONBOARDING_LEVELS or form["cefr_reading"] and form["cefr_reading"] not in ONBOARDING_LEVELS:
+            errors["levels"] = "Pick a CEFR level from the list."
+        if form["target_level"] not in ONBOARDING_TARGETS:
+            errors["goal"] = "Pick a target level."
+        if not form["goal_statement"]:
+            errors["goal"] = "Say why you are learning, even briefly. The planner uses it."
+        if not errors:
+            learner.cefr_listening = form["cefr_listening"]
+            learner.cefr_reading = form["cefr_reading"]
+            learner.placement_notes = form["placement_notes"][:300]
+            learner.target_level = form["target_level"]
+            learner.goal_statement = form["goal_statement"][:400]
+            learner.save()
+            if form["first_name"]:
+                request.user.first_name = form["first_name"][:40]
+                request.user.save(update_fields=["first_name"])
+            if request.POST.get("next") == "checkpoint":
+                existing = learner.lessons.filter(skill="checkpoint", status__in=["planned", "in_progress"]).order_by("-created_at").first()
+                if existing:
+                    return redirect("lessons:runner", lesson_id=existing.id)
+                try:
+                    lesson = planner.prepare_checkpoint(learner, short=True)
+                except client.AIUnavailable as exc:
+                    log.error("placement checkpoint could not be prepared: %s", exc)
+                    return render(request, "lessons/unavailable.html", {"section": "today", "title": "Checkpoint", "error": str(exc)}, status=503)
+                return redirect("lessons:runner", lesson_id=lesson.id)
+            return redirect("core:today")
+    return render(request, "core/onboarding.html", {
+        "section": "today", "title": "Set up your file", "form": form, "errors": errors,
+        "levels": ONBOARDING_LEVELS, "targets": ONBOARDING_TARGETS,
+    })
+
+
 @login_required
 def today(request):
     learner = Learner.for_user(request.user)
+    if needs_onboarding(learner):
+        return redirect("core:onboarding")
     now = timezone.localtime()
     today_date = now.date()
     lesson = todays_lesson(learner, today_date)
