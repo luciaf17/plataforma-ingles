@@ -162,7 +162,7 @@ td .act:hover{color:var(--ink)}
 .stat b{font-family:var(--serif);font-size:34px;font-weight:500;display:block;line-height:1}
 .stat span{color:var(--ink-2);font-size:13px}
 .chart{display:flex;align-items:flex-end;gap:6px;height:120px;margin-top:14px}
-.chart i{flex:1;background:var(--panel-2);border-radius:3px 3px 0 0;position:relative}
+.chart i{flex:1;max-width:56px;background:var(--panel-2);border-radius:3px 3px 0 0;position:relative}
 .chart i.g{background:var(--green)}
 .chart-x{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-3);margin-top:6px}
 .empty{color:var(--ink-2);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:12px}
