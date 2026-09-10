@@ -1,0 +1,72 @@
+{
+  "scan": [
+    {"learner_quote": "the client change some things", "problem": "past simple needed", "spontaneous": true},
+    {"learner_quote": "I work here since 2021", "problem": "present perfect with since", "spontaneous": true},
+    {"learner_quote": "Actually I'm working in a ERP", "problem": "false friend + article", "spontaneous": true},
+    {"learner_quote": "it depends of the client", "problem": "depend on", "spontaneous": true},
+    {"learner_quote": "the client don't trust the numbers", "problem": "agreement", "spontaneous": true},
+    {"learner_quote": "I will explain you the architecture", "problem": "explain to you", "spontaneous": true}
+  ],
+  "summary_es": "Hoy trabajamos en la práctica de entrevistas, enfocándonos en explicar la arquitectura de un ERP. La mini-lección sobre el presente perfecto con \"since\" y \"for\" fue muy bien. Hubo varios errores de tiempo verbal y preposiciones que debemos seguir trabajando. \"Depend on\" fue un error recurrente.",
+  "strengths": [
+    "Clear and confident explanation of the deterministic pricing engine.",
+    "Correct use of present perfect with 'since' and 'for' during the mini-lesson."
+  ],
+  "errors": [
+    {
+      "category": "grammar",
+      "subcategory": "tense",
+      "learner_produced": "I work here since 2021",
+      "correction": "I've worked here since 2021",
+      "explanation_es": "En español usás presente con 'desde'. En inglés, acción que empezó en el pasado y sigue = present perfect.",
+      "confidence": "high",
+      "is_recycled": false,
+      "recycled_error_id": null
+    },
+    {
+      "category": "vocabulary",
+      "subcategory": "false_friend",
+      "learner_produced": "Actually I'm working in a ERP",
+      "correction": "Currently I'm working in an ERP",
+      "explanation_es": "'Actually' significa 'en realidad', no 'actualmente'. Usá 'currently'.",
+      "confidence": "high",
+      "is_recycled": false,
+      "recycled_error_id": null
+    },
+    {
+      "category": "grammar",
+      "subcategory": "prepositions",
+      "learner_produced": "it depends of the client",
+      "correction": "it depends on the client",
+      "explanation_es": "'Depender de' se traduce como 'depend on', no 'depend of'.",
+      "confidence": "high",
+      "is_recycled": false,
+      "recycled_error_id": null
+    },
+    {
+      "category": "grammar",
+      "subcategory": "agreement",
+      "learner_produced": "the client don't trust the numbers",
+      "correction": "the client doesn't trust the numbers",
+      "explanation_es": "Tercera persona singular: 'doesn't'. Se cae cuando hablás rápido.",
+      "confidence": "high",
+      "is_recycled": false,
+      "recycled_error_id": null
+    },
+    {
+      "category": "grammar",
+      "subcategory": "word_order",
+      "learner_produced": "I will explain you the architecture",
+      "correction": "I will explain the architecture to you",
+      "explanation_es": "'Explain' nunca lleva a la persona como objeto directo: 'explain something to someone'.",
+      "confidence": "high",
+      "is_recycled": false,
+      "recycled_error_id": null
+    }
+  ],
+  "recycled_error_ids_avoided": [],
+  "new_vocabulary_produced": ["deterministic", "webhook"],
+  "vocabulary_gaps": ["rq"],
+  "focus_next": ["Use present perfect for ongoing actions", "Correct prepositions like 'depend on'"],
+  "cefr_signal": {"skill": "speaking", "estimate": "B1+", "reasoning": "Handles follow-ups and technical detail; recurring tense and preposition errors."}
+}

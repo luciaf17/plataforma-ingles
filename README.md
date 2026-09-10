@@ -62,7 +62,7 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 3 | `lessons` models | done |
 | 4 | `ai/client.py` | done |
 | 5 | `ai/analyzer.py` | done |
-| 6 | `lessons/postprocess.py` | pending |
+| 6 | `lessons/postprocess.py` | done |
 | 7 | `ai/planner.py` | pending |
 | 8 | speaking runner | pending |
 | 9 | lesson report | pending |
