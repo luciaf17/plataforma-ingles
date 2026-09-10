@@ -97,7 +97,7 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 11 | `today` | done |
 | 12 | writing | done |
 | 13 | reading | done |
-| 14 | listening | pending |
+| 14 | listening | done |
 | 15 | mini-lesson in text | pending |
 | 16 | grammar | pending |
 | 17 | errors + vocab | pending |

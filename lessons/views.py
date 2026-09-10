@@ -6,6 +6,8 @@ from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
 from ai import analyzer, client, planner, tutor, vocab, writing
@@ -79,6 +81,11 @@ def reading_today(request):
     return skill_today(request, "reading")
 
 
+@login_required
+def listening_today(request):
+    return skill_today(request, "listening")
+
+
 def _start(lesson):
     if lesson.status == Lesson.Status.PLANNED:
         lesson.status = Lesson.Status.IN_PROGRESS
@@ -99,7 +106,163 @@ def runner(request, lesson_id):
         return writing_runner(request, lesson)
     if lesson.skill == "reading":
         return reading_runner(request, lesson)
+    if lesson.skill == "listening":
+        return listening_runner(request, lesson)
     return speaking_runner(request, lesson)
+
+
+# --------------------------------------------------------------------------- listening
+
+
+def listening_task(lesson):
+    return (lesson.plan or {}).get("listening_task") or {}
+
+
+def audio_ready(task):
+    lines = task.get("lines", [])
+    segments = task.get("segments", [])
+    return bool(lines) and len(segments) == len(lines) and all(s.get("url") for s in segments)
+
+
+def listening_context(request, lesson, *, answers=None, error=""):
+    plan = lesson.plan or {}
+    task = listening_task(lesson)
+    return {
+        "section": "listening",
+        "title": plan.get("title") or lesson.title,
+        "lesson": lesson,
+        "plan": plan,
+        "task": task,
+        "answers": answers or {},
+        "error": error,
+        "listens_left": max(0, task.get("max_listens", 2) - task.get("listens", 0)),
+        "config": {
+            "segments": [s["url"] for s in task.get("segments", [])],
+            "listens": task.get("listens", 0),
+            "max_listens": task.get("max_listens", 2),
+            "listened_url": f"/lessons/{lesson.id}/listened/",
+        },
+    }
+
+
+def listening_runner(request, lesson):
+    task = listening_task(lesson)
+    if not audio_ready(task):
+        return render(request, "lessons/listening_audio.html", {"section": "listening", "title": lesson.title, "lesson": lesson, "task": task})
+    return render(request, "lessons/listening.html", listening_context(request, lesson))
+
+
+@login_required
+@require_POST
+def listening_audio(request, lesson_id):
+    """Voice every line of the script (two voices for dialogues), once. Called by HTMX on load."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "listening":
+        return JsonResponse({"error": "Not a listening lesson"}, status=409)
+    task = listening_task(lesson)
+    runner_url = f"/lessons/{lesson.id}/"
+    if audio_ready(task):
+        return _hx_redirect(request, runner_url)
+    segments = {s["line_id"]: s for s in task.get("segments", []) if s.get("url")}
+    try:
+        for line in task.get("lines", []):
+            if line["id"] in segments:
+                continue
+            audio = client.speak(line["text"], voice=line["voice"], instructions=LISTENING_VOICE_INSTRUCTIONS, purpose="listening", lesson_id=lesson.id)
+            turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=f"{line['speaker']}: {line['text']}", phase="practice", sequence=next_sequence(lesson))
+            turn.audio_file.save(f"listening-{lesson.id}-{line['id']}.mp3", ContentFile(audio), save=True)
+            segments[line["id"]] = {"line_id": line["id"], "url": turn.audio_file.url}
+            # Save as we go so a failure halfway keeps what was voiced.
+            task["segments"] = [segments[l["id"]] for l in task["lines"] if l["id"] in segments]
+            lesson.plan = {**lesson.plan, "listening_task": task}
+            lesson.save(update_fields=["plan"])
+    except client.AIUnavailable as exc:
+        log.error("listening audio failed for lesson %s: %s", lesson.id, exc)
+        return render(request, "lessons/_audio_error.html", {"lesson": lesson, "error": str(exc)}, status=503)
+    return _hx_redirect(request, runner_url)
+
+
+LISTENING_VOICE_INSTRUCTIONS = (
+    "Natural conversational English at a normal native pace, with the rhythm of real speech. "
+    "Sound like a person in the situation, not a narrator."
+)
+
+
+@login_required
+@require_POST
+def listening_listened(request, lesson_id):
+    """Count one full play-through; the interface stops at max_listens (spec 5.2)."""
+    lesson = own_lesson(request, lesson_id)
+    task = listening_task(lesson)
+    listens = min(task.get("listens", 0) + 1, task.get("max_listens", 2))
+    lesson.plan = {**lesson.plan, "listening_task": {**task, "listens": listens}}
+    lesson.save(update_fields=["plan"])
+    return JsonResponse({"listens": listens, "max_listens": task.get("max_listens", 2)})
+
+
+@login_required
+@require_POST
+def listening_submit(request, lesson_id):
+    """Grade in code, write a report, reveal the transcript. No learner output, so no errors to file."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "listening":
+        return JsonResponse({"error": "Not a listening lesson"}, status=409)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    task = listening_task(lesson)
+    answers = {}
+    for q in task.get("questions", []):
+        raw = request.POST.get(f"q{q['id']}")
+        if raw is not None and raw.isdigit():
+            answers[q["id"]] = int(raw)
+    if any(q["id"] not in answers for q in task.get("questions", [])):
+        return render(request, "lessons/listening.html", listening_context(request, lesson, answers=answers, error="Answer every question before handing in."), status=422)
+
+    _start(lesson)
+    score, rows = grade_questions(task, answers)
+    for row, q in zip(rows, task.get("questions", [])):
+        row["evidence"] = q.get("evidence", "")
+    total = len(rows)
+    missed_types = sorted({r["type"] for r in rows if not r["ok"]})
+    summary = f"Escuchaste \"{task.get('headline', '')}\" y acertaste {score} de {total}."
+    if score == total:
+        summary += " Todo correcto: el audio estaba a tu alcance. La próxima puede ir un paso más rápido."
+    elif missed_types:
+        names = {"gist": "idea general", "detail": "detalle", "inference": "inferencia"}
+        summary += " Fallaste en " + ", ".join(names[t] for t in missed_types) + ". Mirá la transcripción: las respuestas están marcadas."
+    focus = [f"Listening: {t} questions" for t in missed_types]
+    lesson.status = Lesson.Status.ANALYZED
+    lesson.completed_at = timezone.now()
+    if lesson.started_at:
+        lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
+    lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
+    LessonReport.objects.update_or_create(
+        lesson=lesson,
+        defaults={
+            "summary_es": summary,
+            "strengths": [f"{sum(1 for r in rows if r['ok'] and r['type'] == t)} of {sum(1 for r in rows if r['type'] == t)} {t} questions right" for t in ("gist", "detail", "inference") if any(r["type"] == t for r in rows)],
+            "focus_next": focus,
+            "raw_analysis": {
+                "listening": {"score": score, "total": total, "questions": rows, "listens": task.get("listens", 0)},
+                "_meta": {"cefr_signal": {}, "new_error_ids": [], "recycled_error_ids": [], "avoided_error_ids": []},
+            },
+        },
+    )
+    return redirect("lessons:report", lesson_id=lesson.id)
+
+
+def transcript_with_highlights(task, rows):
+    """Script lines as HTML with each question's evidence wrapped in <mark>."""
+    out = []
+    for line in task.get("lines", []):
+        text = escape(line["text"])
+        for row in rows:
+            ev = escape((row.get("evidence") or "").strip())
+            if ev and ev in text:
+                cls = "ok" if row["ok"] else "miss"
+                text = text.replace(ev, f'<mark class="{cls}" title="Question {row["id"]}">{ev}</mark>', 1)
+        out.append({"speaker": line["speaker"], "html": mark_safe(text)})
+    return out
 
 
 def reading_context(request, lesson, *, answers=None, production="", error=""):
@@ -219,7 +382,7 @@ def vocab_lookup(request, lesson_id):
     sentence = (request.POST.get("sentence") or "").strip()[:400]
     if not word or len(word) > 60:
         return JsonResponse({"error": "No word"}, status=400)
-    task = (lesson.plan or {}).get("reading_task") or {}
+    task = (lesson.plan or {}).get("reading_task") or (lesson.plan or {}).get("listening_task") or {}
     entry = next((g for g in task.get("glossary", []) if g.get("term", "").lower() == word), None)
     if entry is None:
         # "rolled" should find "roll back": match on shared stems of at least four letters.
@@ -409,6 +572,9 @@ def report(request, lesson_id):
 
     learner_turns = lesson.turns.filter(role=Turn.Role.LEARNER)
     reading_data = (lesson_report.raw_analysis or {}).get("reading")
+    listening_data = (lesson_report.raw_analysis or {}).get("listening")
+    if listening_data:
+        listening_data = {**listening_data, "transcript": transcript_with_highlights(listening_task(lesson), listening_data.get("questions", []))}
     writing_data = (lesson_report.raw_analysis or {}).get("writing")
     if writing_data:
         writing_data = {
@@ -418,9 +584,10 @@ def report(request, lesson_id):
             "word_count": len(writing_data.get("original_text", "").split()),
         }
     context = {
-        "section": lesson.skill if lesson.skill in ("speaking", "writing", "reading") else "speaking",
+        "section": lesson.skill if lesson.skill in ("speaking", "writing", "reading", "listening") else "speaking",
         "writing": writing_data,
         "reading": reading_data,
+        "listening": listening_data,
         "title": lesson.title,
         "lesson": lesson,
         "report": lesson_report,

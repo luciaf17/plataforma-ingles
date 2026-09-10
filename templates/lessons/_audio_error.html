@@ -1,0 +1,7 @@
+<h3>The audio couldn't be generated</h3>
+<p class="hint">{{ error }}</p>
+<p class="hint" style="margin-top:8px">What was already voiced is kept; try again in a moment.</p>
+<div style="margin-top:16px;display:flex;gap:10px">
+  <button class="btn primary" hx-post="{% url 'lessons:listening_audio' lesson.id %}" hx-target="#audio-box" hx-swap="innerHTML" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Try again</button>
+  <a class="btn" href="{% url 'core:today' %}">Back to Today</a>
+</div>

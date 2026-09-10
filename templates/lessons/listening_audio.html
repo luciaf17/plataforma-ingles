@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>{{ title }}</h1><p>Listening · voicing the {{ task.format|default:"audio" }} for you. This takes about half a minute the first time.</p></div>
+</div>
+<div class="card" id="audio-box"
+     hx-post="{% url 'lessons:listening_audio' lesson.id %}"
+     hx-trigger="load"
+     hx-target="#audio-box"
+     hx-swap="innerHTML"
+     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <div class="spinner-wrap">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="hint">Recording {{ task.lines|length }} turns{% if task.speakers|length > 1 %} with two voices{% endif %}…</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;padding:36px 0}
+  .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--amber);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+{% endblock %}

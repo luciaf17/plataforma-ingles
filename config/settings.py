@@ -149,7 +149,7 @@ OPENAI_PRICES = {
 }
 
 # Skills the planner may schedule. Grows as each runner lands (spec 13).
-LESSON_SKILLS_ENABLED = env.list("LESSON_SKILLS_ENABLED", default=["speaking", "writing", "reading"])
+LESSON_SKILLS_ENABLED = env.list("LESSON_SKILLS_ENABLED", default=["speaking", "writing", "reading", "listening"])
 
 LOGGING = {
     "version": 1,

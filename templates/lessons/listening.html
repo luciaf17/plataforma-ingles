@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% load static lesson_extras %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Listening · {{ lesson.track.name }} track · {{ task.format|capfirst }} · {{ task.lines|length }} turns · Two listens max. You'll see the transcript after you answer.</p>
+  </div>
+</div>
+
+<div class="lesson listening">
+  <div class="card stage">
+    <div class="kicker">{{ task.format|capfirst }}</div>
+    <h2 class="headline">{{ task.headline }}</h2>
+    <p class="setting">{{ task.setting }}</p>
+    {% if task.speakers|length > 1 %}<p class="hint" style="margin-top:6px">Voices: {% for s in task.speakers %}<b>{{ s.name }}</b>{% if not forloop.last %} and {% endif %}{% endfor %}</p>{% endif %}
+
+    <div class="player" id="player">
+      <button class="play" id="play" type="button" aria-label="Play"><svg viewBox="0 0 24 24" id="play-icon"><path d="M7 4v16l13-8z" fill="currentColor"/></svg></button>
+      <div class="player-body">
+        <div class="bar progress"><i id="progress" style="width:0%"></i></div>
+        <div class="player-meta">
+          <span id="player-status">Ready</span>
+          <span>
+            <button type="button" class="speed" id="speed" data-rate="1">1.0×</button>
+            <span class="pill amber" id="listens">{{ listens_left }} listen{{ listens_left|pluralize }} left</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'lessons:listening_submit' lesson.id %}" id="listening-form">
+      {% csrf_token %}
+      <h3 style="margin-top:26px">Questions</h3>
+      {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+      <ol class="questions">
+        {% for q in task.questions %}
+          <li>
+            <p class="q-text"><span class="pill">{{ q.type }}</span> {{ q.question }}</p>
+            <div class="options">
+              {% for o in q.options %}
+                <label><input type="radio" name="q{{ q.id }}" value="{{ forloop.counter0 }}" {% if answers|get_item:q.id == forloop.counter0 %}checked{% endif %} required> {{ o }}</label>
+              {% endfor %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+      <div class="bar-row">
+        <small class="hint">Handing in ends the lesson and reveals the transcript.</small>
+        <button class="btn primary" type="submit" id="submit">Hand it in</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="aside">
+    <div class="card">
+      <h3>Before you press play</h3>
+      <p class="hint">Read the questions first. Listen once for the gist, answer what you can, then use the second listen for the details.</p>
+    </div>
+    {% if task.glossary %}
+    <div class="card">
+      <h3>Words you'll hear</h3>
+      <dl class="glossary">
+        {% for g in task.glossary %}<dt>{{ g.term }}</dt><dd>{{ g.definition_en }}</dd>{% endfor %}
+      </dl>
+    </div>
+    {% endif %}
+    {% if lesson.grammar_topic %}
+    <div class="card">
+      <h3>Mini-lesson</h3>
+      <p class="hint"><b>{{ lesson.grammar_topic.title }}</b></p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<audio id="audio" preload="auto"></audio>
+{{ config|json_script:"listening-config" }}
+{% endblock %}
+
+{% block head %}
+<style>
+  .listening .stage{min-height:0}
+  .listening .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .headline{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.2;margin-bottom:8px}
+  .setting{font-family:var(--serif);font-size:16px;color:var(--ink-2)}
+  .player{display:flex;gap:16px;align-items:center;margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .play{width:64px;height:64px;border-radius:50%;background:var(--amber);color:#1a1509;display:grid;place-items:center;flex:none;box-shadow:0 0 0 8px var(--amber-soft)}
+  .play svg{width:26px;height:26px}
+  .play:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .player-body{flex:1;display:flex;flex-direction:column;gap:10px}
+  .progress{height:8px}
+  .player-meta{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--ink-2)}
+  .speed{border:1px solid var(--line);border-radius:99px;padding:2px 9px;font-size:12px;color:var(--ink-2);margin-right:8px}
+  .speed:hover{color:var(--ink)}
+  .questions{list-style:none;display:flex;flex-direction:column}
+  .questions>li{padding:12px 0;border-bottom:1px solid var(--line)}
+  .questions>li:last-child{border:0}
+  .q-text{font-family:var(--serif);font-size:16px;margin-bottom:8px}
+  .options{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-2)}
+  .options label{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;cursor:pointer}
+  .options label:hover{background:var(--panel-2)}
+  .options input{accent-color:var(--amber);margin-top:3px}
+  .bar-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:14px}
+  .form-error{color:var(--red);margin:8px 0;font-size:13px}
+  .glossary{display:flex;flex-direction:column;gap:2px}
+  .glossary dt{font-family:var(--serif);font-size:15px;margin-top:8px}
+  .glossary dd{font-size:13px;color:var(--ink-2)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/listening.js' %}"></script>
+{% endblock %}

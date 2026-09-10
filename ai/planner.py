@@ -327,8 +327,93 @@ READING_PLAN_SCHEMA = {
     "additionalProperties": False,
 }
 
-# One schema per skill (spec 9.2). Listening lands with its runner.
-PLAN_SCHEMAS = {"speaking": SPEAKING_PLAN_SCHEMA, "writing": WRITING_PLAN_SCHEMA, "reading": READING_PLAN_SCHEMA}
+LISTENING_QUESTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **QUESTION_SCHEMA["properties"],
+        "evidence": {"type": "string"},
+    },
+    "required": QUESTION_SCHEMA["required"] + ["evidence"],
+    "additionalProperties": False,
+}
+
+LISTENING_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **SPEAKING_PLAN_SCHEMA["properties"],
+        "listening_task": {
+            "type": "object",
+            "properties": {
+                "format": {"type": "string", "enum": ["dialogue", "monologue"]},
+                "headline": {"type": "string"},
+                "setting": {"type": "string"},
+                "speakers": {"type": "array", "items": {"type": "string"}},
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {"speaker": {"type": "string"}, "text": {"type": "string"}},
+                        "required": ["speaker", "text"],
+                        "additionalProperties": False,
+                    },
+                },
+                "glossary": {"type": "array", "items": GLOSSARY_SCHEMA},
+                "questions": {"type": "array", "items": LISTENING_QUESTION_SCHEMA},
+            },
+            "required": ["format", "headline", "setting", "speakers", "lines", "glossary", "questions"],
+            "additionalProperties": False,
+        },
+    },
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["listening_task"],
+    "additionalProperties": False,
+}
+
+# One schema per skill (spec 9.2).
+PLAN_SCHEMAS = {
+    "speaking": SPEAKING_PLAN_SCHEMA,
+    "writing": WRITING_PLAN_SCHEMA,
+    "reading": READING_PLAN_SCHEMA,
+    "listening": LISTENING_PLAN_SCHEMA,
+}
+
+# Two clearly different voices for dialogues, one for monologues. The tutor keeps "sage".
+DIALOGUE_VOICES = ["coral", "onyx"]
+MONOLOGUE_VOICE = "verse"
+MAX_LISTENS = 2
+
+
+def normalise_listening_task(task):
+    """Speakers get voices, lines get ids and a voice, questions get ids."""
+    task = dict(task or {})
+    speakers = [s.strip() for s in task.get("speakers", []) if s and s.strip()]
+    if task.get("format") == "dialogue":
+        speakers = speakers[:2] or ["A", "B"]
+        voices = {name: DIALOGUE_VOICES[i % 2] for i, name in enumerate(speakers)}
+    else:
+        speakers = speakers[:1] or ["Speaker"]
+        voices = {speakers[0]: MONOLOGUE_VOICE}
+    lines = []
+    for index, line in enumerate(task.get("lines", [])):
+        text = (line.get("text") or "").strip()
+        if not text:
+            continue
+        speaker = (line.get("speaker") or "").strip()
+        if speaker not in voices:
+            speaker = speakers[index % len(speakers)] if task.get("format") == "dialogue" else speakers[0]
+        lines.append({"id": index + 1, "speaker": speaker, "text": text, "voice": voices[speaker]})
+    task["speakers"] = [{"name": name, "voice": voice} for name, voice in voices.items()]
+    task["lines"] = lines
+    task["questions"] = normalise_reading_task({"questions": task.get("questions", [])})["questions"]
+    task["glossary"] = normalise_reading_task({"glossary": task.get("glossary", [])})["glossary"]
+    task["word_count"] = sum(len(line["text"].split()) for line in lines)
+    task.setdefault("segments", [])
+    task.setdefault("listens", 0)
+    task["max_listens"] = MAX_LISTENS
+    return task
+
+
+# Spoken English runs at roughly 150 words a minute; the audio should last 2 to 4 minutes.
+LISTENING_MIN_WORDS = {10: 200, 15: 260, 20: 320, 30: 420}
 
 
 def normalise_reading_task(task):
@@ -437,6 +522,7 @@ def normalise_plan(data, learner, selection):
         "if_stuck_hints": data.get("if_stuck_hints", []),
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
         "reading_task": normalise_reading_task(data.get("reading_task")) if selection.skill == "reading" else None,
+        "listening_task": normalise_listening_task(data.get("listening_task")) if selection.skill == "listening" else None,
         "learner_request": selection.request or "",
         "skill": selection.skill,
         "track": selection.track.slug,
@@ -468,6 +554,17 @@ def generate_plan(learner, selection):
             retry = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
             retry_plan = normalise_plan(retry.data, learner, selection)
             if (retry_plan.get("reading_task") or {}).get("word_count", 0) > got:
+                plan, chat = retry_plan, retry
+    if selection.skill == "listening":
+        expected = LISTENING_MIN_WORDS.get(selection.duration, 320)
+        got = (plan.get("listening_task") or {}).get("word_count", 0)
+        if got < expected * 0.8:
+            log.warning("listening script too short (%d words, expected %d); regenerating once", got, expected)
+            messages.append({"role": "assistant", "content": chat.content})
+            messages.append({"role": "user", "content": f"The script has {got} words; it must have at least {expected}. Rewrite the whole plan with a full-length script, same format and topic."})
+            retry = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
+            retry_plan = normalise_plan(retry.data, learner, selection)
+            if (retry_plan.get("listening_task") or {}).get("word_count", 0) > got:
                 plan, chat = retry_plan, retry
     plan["_meta"] = {"model": chat.model, "prompt_tokens": chat.prompt_tokens, "completion_tokens": chat.completion_tokens}
     log.info(

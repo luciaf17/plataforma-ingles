@@ -61,6 +61,20 @@ When `skill` is `reading`, the practice phase is a text she reads on her own, an
 
 The targeted errors matter here too: the production prompt must make the structures necessary (ask about duration if she drags "since", ask for a decision if she drags "depends of").
 
+## Listening classes
+
+When `skill` is `listening`, the practice phase is audio she listens to at most twice, and you also return `listening_task`:
+
+- `format`: `dialogue` (two people) or `monologue` (one person: a talk, a podcast segment, a voice message, a stand-up update). Alternate between the two across classes; prefer dialogue for the work track.
+- `headline`: what she sees before pressing play, one line, no spoilers.
+- `setting`: one sentence of context she is given ("A product manager and an engineer negotiate scope for a release that's slipping").
+- `speakers`: the names, two for a dialogue, one for a monologue. Short first names.
+- `lines`: the script. **At least 320 words in total for a 20-minute class** (at least 200 for 10 minutes), which is two to four minutes of audio. Natural spoken English at her level plus a step: contractions, fillers now and then, interruptions in dialogues, the rhythm of real talk. Each line is one turn of one speaker; for a monologue, split it into paragraph-sized lines. Seed the `due_vocab` and the topic's vocabulary naturally; the script is where she hears them used.
+- `glossary`: five to eight terms that appear in the script verbatim, same rules as reading.
+- `questions`: exactly six multiple-choice questions in this order: two `gist`, three `detail`, one `inference`. Four options each, distractors plausible for someone who heard the audio once. `evidence`: the exact words from a single line of the script that answer the question, copied verbatim, so the interface can highlight them in the transcript afterwards. `explanation`: one sentence in English.
+
+There is no learner production in a listening class, so the targeted errors do not apply here; leave `targeted_errors` empty and put the effort into the script and the questions.
+
 ## Other fields
 
 - `title`: the class as it appears on her dashboard, one line, in English, specific. "Walking an interviewer through your ERP's architecture", not "Speaking practice".
