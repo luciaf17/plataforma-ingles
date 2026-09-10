@@ -42,7 +42,7 @@
   <div class="side-foot">
     {% block sidebar_footer %}
       {% if user.is_authenticated %}
-        <b>{{ user.get_short_name|default:user.username }}</b>Your file is empty for now.
+        <b>{{ user.get_short_name|default:user.username }}</b>Speaking {{ learner.cefr_speaking|default:"—" }}{% if learner.goal_statement %} · Goal: {{ learner.goal_statement|truncatechars:32 }}{% endif %}
       {% else %}
         <b>Not signed in</b><a href="{% url 'admin:login' %}?next=/">Sign in</a>
       {% endif %}

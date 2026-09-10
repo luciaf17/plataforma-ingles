@@ -94,3 +94,11 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 8 | speaking runner | done |
 | 9 | lesson report | done |
 | 10 | deploy | done |
+| 11 | `today` | done |
+| 12 | writing | pending |
+| 13 | reading | pending |
+| 14 | listening | pending |
+| 15 | mini-lesson in text | pending |
+| 16 | grammar | pending |
+| 17 | errors + vocab | pending |
+| 18 | cron | pending |

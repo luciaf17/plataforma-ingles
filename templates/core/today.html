@@ -2,30 +2,72 @@
 
 {% block content %}
 <div class="head">
-  <div><h1>{{ title }}</h1><p>Your lesson for today will show up here once the planner is in place.</p></div>
+  <div><h1>{{ title }}</h1><p>{% if day_number %}Day {{ day_number }}. {% endif %}{{ yesterday_line }}</p></div>
+  <form method="post" action="{% url 'core:prepare_today' %}" hx-post="{% url 'core:prepare_today' %}" hx-target="#today-lesson" hx-swap="innerHTML" hx-indicator="#today-lesson">
+    {% csrf_token %}
+    <input type="hidden" name="force" value="1">
+    <input type="hidden" name="surprise" value="1">
+    <button class="btn ghost" type="submit" {% if lesson.status == 'in_progress' %}disabled{% endif %}>Surprise me</button>
+  </form>
 </div>
 
 <div class="grid g2">
-  <div class="card today">
-    <div class="kicker">Today's lesson</div>
-    <h2>Nothing prepared yet</h2>
-    <div class="meta">The planner runs before you open the app. It's not built yet.</div>
+  <div id="today-lesson" class="card today">
+    {% include "core/_today_lesson.html" %}
   </div>
 
-  <div class="flex flex-col gap-4">
+  <div style="display:flex;flex-direction:column;gap:16px">
     <div class="card">
       <h3>Streak</h3>
-      <div class="streak"><b>0</b><span>days in a row</span></div>
+      <div class="streak"><b>{{ streak }}</b><span>{{ streak|pluralize:"day,days" }} in a row</span></div>
+      <div class="days">{% for d in last_days %}<i class="{% if d.state == 'done' %}d{% elif d.state == 'today' %}h{% endif %}" title="{{ d.date|date:'D j M' }}"></i>{% endfor %}</div>
     </div>
     <div class="card">
-      <h3>Level by skill</h3>
-      <div class="empty">No placement yet.</div>
+      <h3>Level by skill <small>bar = progress to {{ learner.target_level }}</small></h3>
+      <div class="skills">
+        {% for s in skill_levels %}
+          <div class="skill"><span>{{ s.name }}</span><div class="bar"><i class="{% if not s.is_target %}a{% endif %}" style="width:{{ s.pct }}%"></i></div><span class="lvl">{{ s.level }}</span></div>
+        {% endfor %}
+        <div class="skill" style="margin-top:6px;padding-top:10px;border-top:1px dashed var(--line)"><span>Program</span><div class="bar"><i style="width:{{ program.pct }}%"></i></div><span class="lvl">{{ program.mastered }}/{{ program.total }}</span></div>
+      </div>
+      {% if not learner.placement_done %}<p class="hint" style="margin-top:12px;font-size:13px">No placement yet. Levels fill in after onboarding and your first checkpoint.</p>{% endif %}
     </div>
   </div>
 </div>
 
-<div class="card mt-4">
+<div class="card" style="margin-top:16px">
   <h3>Recent lessons</h3>
-  <div class="empty">No lessons yet.</div>
+  {% if recent %}
+    <div class="list">
+      {% for r in recent %}
+        <div class="row">
+          <span class="when">{{ r.when }}</span>
+          <div class="what"><b>{% if r.report %}<a href="{% url 'lessons:report' r.lesson.id %}">{{ r.lesson.title }}</a>{% else %}{{ r.lesson.title }}{% endif %}</b><span>{{ r.lesson.get_skill_display }} · {{ r.lesson.track.name }} · {{ r.minutes }} min</span></div>
+          <span class="res">{{ r.result }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty">No lessons yet.</div>
+  {% endif %}
 </div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .today .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding:28px 0}
+  .today .spinner{width:40px;height:40px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--amber);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #today-lesson.htmx-request > *{opacity:.35;pointer-events:none}
+  .picker{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .picker summary{cursor:pointer;color:var(--ink-2);font-size:13px;list-style:none}
+  .picker summary::-webkit-details-marker{display:none}
+  .picker form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+  .picker label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-3)}
+  .picker select{background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:8px 10px;font:inherit}
+  .picker .actions{grid-column:1/-1;display:flex;gap:10px}
+  .today .targets .n{align-self:flex-start}
+  .row .what a:hover{text-decoration:underline}
+  @media (max-width:860px){.picker form{grid-template-columns:1fr}}
+</style>
 {% endblock %}

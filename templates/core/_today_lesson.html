@@ -1,0 +1,70 @@
+{% if prepare_error %}
+  <div class="kicker">Today's lesson</div>
+  <h2>The class could not be prepared</h2>
+  <div class="meta">{{ prepare_error }}</div>
+  <form hx-post="{% url 'core:prepare_today' %}" hx-target="#today-lesson" hx-swap="innerHTML" hx-indicator="#today-lesson">
+    {% csrf_token %}
+    <button class="btn primary" type="submit">Try again</button>
+  </form>
+{% elif not lesson %}
+  <div class="kicker">Today's lesson</div>
+  <div class="spinner-wrap" hx-post="{% url 'core:prepare_today' %}" hx-trigger="load" hx-target="#today-lesson" hx-swap="innerHTML" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="hint">Preparing your class from your file: picking the skill, the topic, the grammar point and the errors to target…</p>
+  </div>
+{% else %}
+  <div class="kicker">{% if lesson.status == 'in_progress' %}In progress{% elif lesson.status == 'analyzed' or lesson.status == 'completed' %}Done today{% else %}Today's lesson{% endif %}</div>
+  <h2>{{ lesson.title }}</h2>
+  <div class="meta">{{ lesson.get_skill_display }} · {{ lesson.track.name }} track · {{ lesson.plan.duration_min|default:20 }} min{% if lesson.grammar_topic %} · Mini-lesson: {{ lesson.grammar_topic.title }}{% endif %}</div>
+
+  {% if targeted %}
+    <div class="targets">
+      <p>This lesson targets {{ targeted|length }} error{{ targeted|length|pluralize }} from your file</p>
+      {% for t in targeted %}
+        <div class="target"><i class="dot"></i><div><span class="wrong">{{ t.learner_produced }}</span><br><span class="right">{{ t.correction }}</span></div><span class="n">{% if t.occurrences %}{{ t.occurrences }} time{{ t.occurrences|pluralize }}{% endif %}</span></div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="targets"><p>Nothing from your file is due today. The tutor still recasts what it hears.</p></div>
+  {% endif %}
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    {% if lesson.status == 'planned' %}
+      <a class="btn primary" href="{% url 'lessons:runner' lesson.id %}">Start lesson</a>
+    {% elif lesson.status == 'in_progress' %}
+      <a class="btn primary" href="{% url 'lessons:runner' lesson.id %}">Resume lesson</a>
+    {% elif lesson.status == 'completed' %}
+      <a class="btn primary" href="{% url 'lessons:analyzing' lesson.id %}">See the analysis</a>
+    {% else %}
+      <a class="btn primary" href="{% url 'lessons:report' lesson.id %}">Read the report</a>
+    {% endif %}
+  </div>
+
+  {% if lesson.status != 'in_progress' %}
+  <details class="picker">
+    <summary>{% if lesson.status == 'planned' %}Change skill or topic{% else %}Another lesson today{% endif %} ›</summary>
+    <form hx-post="{% url 'core:prepare_today' %}" hx-target="#today-lesson" hx-swap="innerHTML" hx-indicator="#today-lesson">
+      {% csrf_token %}
+      <input type="hidden" name="force" value="1">
+      <label>Skill
+        <select name="skill">{% for s in picker.skills %}<option value="{{ s }}" {% if s == lesson.skill %}selected{% endif %}>{{ s|capfirst }}</option>{% endfor %}</select>
+      </label>
+      <label>Track
+        <select name="track">{% for t in picker.tracks %}<option value="{{ t.slug }}" {% if t.id == lesson.track_id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}</select>
+      </label>
+      <label>Duration
+        <select name="duration">{% for d in picker.durations %}<option value="{{ d }}" {% if d == lesson.plan.duration_min %}selected{% endif %}>{{ d }} min</option>{% endfor %}</select>
+      </label>
+      <label>Topic
+        <select name="topic">
+          <option value="">Let the planner choose</option>
+          {% for t in picker.topics %}<option value="{{ t.id }}">{{ t.track.name }} · {{ t.title }}</option>{% endfor %}
+        </select>
+      </label>
+      <div class="actions">
+        <button class="btn" type="submit">{% if lesson.status == 'planned' %}Regenerate the plan{% else %}Prepare another lesson{% endif %}</button>
+      </div>
+    </form>
+  </details>
+  {% endif %}
+{% endif %}

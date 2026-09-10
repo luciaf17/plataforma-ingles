@@ -6,6 +6,7 @@ app_name = "core"
 
 urlpatterns = [
     path("", views.today, name="today"),
+    path("today/prepare/", views.prepare_today, name="prepare_today"),
     # Placeholder routes so the sidebar is navigable before each screen exists.
     # Each one gets replaced by its real view in the module that builds it.
     path("listening/", views.placeholder, {"section": "listening"}, name="listening"),
