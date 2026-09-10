@@ -36,6 +36,17 @@
   </div>
 
   <div style="display:flex;flex-direction:column;gap:16px">
+    {% if listening %}
+    <div class="card">
+      <h3>This lesson</h3>
+      <div class="grid g3 stats">
+        <div class="stat"><b class="green">{{ listening.score }}<small>/{{ listening.total }}</small></b><span>correct</span></div>
+        <div class="stat"><b class="amber">{{ listening.listens }}</b><span>listen{{ listening.listens|pluralize }}</span></div>
+        <div class="stat"><b>{{ lesson.plan.listening_task.word_count|default:"—" }}</b><span>words heard</span></div>
+      </div>
+      <p class="hint" style="margin-top:12px;font-size:13px">Listening leaves no errors in your file; the transcript below shows where each answer was.</p>
+    </div>
+    {% else %}
     <div class="card">
       <h3>This lesson</h3>
       <div class="grid g3 stats">
@@ -44,7 +55,9 @@
         <div class="stat"><b class="green">{{ report.errors_avoided_count }}<small>/{{ targeted_count }}</small></b><span>targeted, avoided</span></div>
       </div>
     </div>
-    {% if writing %}
+    {% endif %}
+    {% if listening %}
+    {% elif writing %}
     <div class="card">
       <h3>Your text</h3>
       <div class="skills">

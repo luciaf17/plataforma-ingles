@@ -80,6 +80,15 @@ def program_progress(learner):
     return {"mastered": mastered, "total": total, "pct": round(mastered * 100 / total) if total else 0}
 
 
+def unfinished_lessons(learner, today):
+    """Lessons from earlier days that were planned or started and never handed in."""
+    return list(
+        learner.lessons.filter(scheduled_for__lt=today, status__in=[Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS])
+        .select_related("track")
+        .order_by("-scheduled_for")
+    )
+
+
 def recent_lessons(learner, today, limit=5):
     rows = []
     lessons = learner.lessons.filter(status__in=FINISHED).select_related("track", "topic").order_by("-scheduled_for", "-created_at")[:limit]

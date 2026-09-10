@@ -35,6 +35,24 @@
   </div>
 </div>
 
+{% if unfinished %}
+<div class="card" style="margin-top:16px">
+  <h3>Unfinished <small>from earlier days · resume or drop them</small></h3>
+  <div class="list">
+    {% for u in unfinished %}
+      <div class="row">
+        <span class="when">{{ u.scheduled_for|date:"D j M" }}</span>
+        <div class="what"><b>{{ u.title }}</b><span>{{ u.get_skill_display }} · {{ u.track.name }} · {{ u.get_status_display|lower }}</span></div>
+        <span style="display:flex;gap:8px">
+          <a class="btn" href="{% url 'lessons:runner' u.id %}">Resume</a>
+          <form method="post" action="{% url 'core:drop_lesson' u.id %}"><input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}"><button class="btn ghost" type="submit">{% if u.status == 'in_progress' %}Finish{% else %}Drop{% endif %}</button></form>
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="card" style="margin-top:16px">
   <h3>Recent lessons</h3>
   {% if recent %}

@@ -194,3 +194,45 @@ class PrepareTodayTests(TodayBase):
             response = self.client.post("/today/prepare/", {"force": "1"}, HTTP_HX_REQUEST="true")
         self.assertEqual(response.status_code, 503)
         self.assertIn("in progress", response.content.decode())
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["speaking"])
+class UnfinishedLessonTests(TodayBase):
+    def test_unfinished_lessons_are_listed_with_resume_and_drop(self):
+        old_planned = self.lesson(days_ago=2, status="planned")
+        old_started = self.lesson(days_ago=1, status="in_progress")
+        self.lesson(days_ago=1, status="analyzed")
+        html = self.client.get("/").content.decode()
+        self.assertIn("Unfinished", html)
+        self.assertIn(f'href="/lessons/{old_planned.id}/"', html)
+        self.assertIn(f'action="/today/drop/{old_planned.id}/"', html)
+        self.assertIn(">Drop<", html)
+        self.assertIn(">Finish<", html)
+        self.assertEqual([l.id for l in dashboard.unfinished_lessons(self.learner, self.today)], [old_started.id, old_planned.id])
+
+    def test_drop_deletes_a_planned_lesson(self):
+        old = self.lesson(days_ago=2, status="planned")
+        response = self.client.post(f"/today/drop/{old.id}/")
+        self.assertRedirects(response, "/", fetch_redirect_response=False)
+        self.assertFalse(Lesson.objects.filter(id=old.id).exists())
+
+    def test_finish_closes_a_started_lesson_with_turns_for_analysis(self):
+        from lessons.models import Turn
+
+        old = self.lesson(days_ago=1, status="in_progress", started_at=timezone.now() - timedelta(days=1))
+        Turn.objects.create(lesson=old, role="learner", text="I work here since 2021", sequence=1)
+        response = self.client.post(f"/today/drop/{old.id}/")
+        self.assertRedirects(response, f"/lessons/{old.id}/analyzing/", fetch_redirect_response=False)
+        old.refresh_from_db()
+        self.assertEqual(old.status, "completed")
+
+    def test_started_lesson_without_turns_is_just_dropped(self):
+        old = self.lesson(days_ago=1, status="in_progress")
+        self.client.post(f"/today/drop/{old.id}/")
+        self.assertFalse(Lesson.objects.filter(id=old.id).exists())
+
+    def test_cannot_drop_someone_elses_lesson(self):
+        other = Learner.for_user(get_user_model().objects.create_user("other"))
+        foreign = Lesson.objects.create(learner=other, track=self.work, skill="speaking", plan=PLAN, scheduled_for=self.today - timedelta(days=1))
+        self.assertEqual(self.client.post(f"/today/drop/{foreign.id}/").status_code, 404)
+        self.assertTrue(Lesson.objects.filter(id=foreign.id).exists())

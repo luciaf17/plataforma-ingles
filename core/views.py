@@ -73,6 +73,7 @@ def today(request):
         "skill_levels": dashboard.skill_levels(learner),
         "program": dashboard.program_progress(learner),
         "recent": dashboard.recent_lessons(learner, today_date),
+        "unfinished": dashboard.unfinished_lessons(learner, today_date),
         **lesson_card_context(request, learner, lesson),
     }
     return render(request, "core/today.html", context)
@@ -111,6 +112,25 @@ def prepare_today(request):
         return redirect("core:today")
     status = 503 if error else 200
     return render(request, "core/_today_lesson.html", lesson_card_context(request, learner, lesson, error=error), status=status)
+
+
+@login_required
+@require_POST
+def drop_lesson(request, lesson_id):
+    """Discard an unfinished lesson from an earlier day. Started speaking lessons
+    are closed and analyzed instead, so what was said is not lost."""
+    learner = Learner.for_user(request.user)
+    lesson = Lesson.objects.filter(id=lesson_id, learner=learner).first()
+    if lesson is None:
+        raise Http404
+    if lesson.status == Lesson.Status.IN_PROGRESS and lesson.turns.filter(role="learner").exists():
+        lesson.status = Lesson.Status.COMPLETED
+        lesson.completed_at = timezone.now()
+        lesson.save(update_fields=["status", "completed_at"])
+        return redirect("lessons:analyzing", lesson_id=lesson.id)
+    if lesson.status in (Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS):
+        lesson.delete()
+    return redirect("core:today")
 
 
 @login_required
