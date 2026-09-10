@@ -99,6 +99,6 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 13 | reading | done |
 | 14 | listening | done |
 | 15 | mini-lesson in text | done |
-| 16 | grammar | pending |
+| 16 | grammar | done |
 | 17 | errors + vocab | pending |
 | 18 | cron | pending |

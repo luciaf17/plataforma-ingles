@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>Grammar</h1><p>Your program to {{ learner.target_level }} on top, built from a real syllabus. Your recurring errors below, built from what you actually say.</p></div>
+  <form method="post" action="{% url 'core:start_drill' %}">{% csrf_token %}<button class="btn primary" type="submit" {% if not due_count %}disabled{% endif %}>Drill what's due{% if due_count %} · {{ due_count }}{% endif %}</button></form>
+</div>
+
+<div class="card" style="margin-bottom:22px">
+  <h3>Your program to {{ learner.target_level }} <small>{{ program_progress.mastered }} of {{ program_progress.total }} mastered</small></h3>
+  <div class="bar" style="margin-bottom:16px"><i style="width:{{ program_progress.pct }}%"></i></div>
+  {% for level in program %}
+    <div class="level">
+      <h4>{{ level.level }} <small>{{ level.mastered }}/{{ level.topics|length }}</small></h4>
+      <div class="topics">
+        {% for t in level.topics %}
+          <details class="topic {{ t.status }}">
+            <summary>
+              <span class="order">{{ t.topic.order }}</span>
+              <span class="ttl">{{ t.topic.title }}</span>
+              <span class="pill {{ t.pill }}">{{ t.label }}{% if t.times_targeted %} · {{ t.times_avoided }}/{{ t.times_targeted }}{% endif %}</span>
+            </summary>
+            <div class="topic-body">
+              <p class="es">{{ t.topic.summary_es }}</p>
+              {% for ex in t.topic.examples %}
+                <div class="ex"><s>{{ ex.wrong }}</s> → <em>{{ ex.right }}</em>{% if ex.note_es %}<small>{{ ex.note_es }}</small>{% endif %}</div>
+              {% endfor %}
+              <form method="post" action="{% url 'core:start_drill' %}" style="margin-top:10px">
+                {% csrf_token %}
+                <input type="hidden" name="topic" value="{{ t.topic.id }}">
+                <button class="btn" type="submit">Drill this now · 5 min</button>
+              </form>
+            </div>
+          </details>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<h3 style="margin-bottom:12px">Your recurring errors</h3>
+<div class="filters">
+  {% for key, label in filters %}<a class="pill {% if filter == key %}on{% endif %}" href="?f={{ key }}">{{ label }}</a>{% endfor %}
+</div>
+{% if patterns %}
+<div class="gram">
+  {% for c in patterns %}
+    <div class="gcard {% if c.state == 'mastered' %}mastered{% endif %}">
+      <header>
+        <h4>{{ c.title }}</h4>
+        <span class="pill {% if c.state == 'mastered' %}green{% elif c.state == 'needs_work' %}red{% else %}amber{% endif %}">{% if c.state == 'mastered' %}Mastered{% else %}{{ c.count }} error{{ c.count|pluralize }}{% endif %}</span>
+      </header>
+      <p>{{ c.description }}</p>
+      <div class="ex"><s>{{ c.example.learner_produced }}</s> → <em>{{ c.example.correction }}</em></div>
+      <footer>
+        <div class="bar"><i class="{% if c.state != 'mastered' %}a{% endif %}" style="width:{{ c.pct }}%"></i></div>
+        <small>Box {{ c.box }}{% if c.due_label %} · {{ c.due_label }}{% endif %}</small>
+        {% if c.state != 'mastered' %}
+          <form method="post" action="{% url 'core:start_drill' %}">{% csrf_token %}<input type="hidden" name="subcategory" value="{{ c.subcategory }}"><button class="btn" type="submit">Drill</button></form>
+        {% endif %}
+      </footer>
+    </div>
+  {% endfor %}
+</div>
+{% else %}
+  <div class="empty">{% if filter == 'all' %}No errors in your file yet. Your first lesson fills it.{% else %}Nothing here for this filter.{% endif %}</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+  .level{margin-top:14px}
+  .level h4{font-size:13px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+  .level h4 small{color:var(--ink-3);font-weight:400;margin-left:6px}
+  .topics{display:flex;flex-direction:column}
+  .topic summary{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line);cursor:pointer;list-style:none}
+  .topic summary::-webkit-details-marker{display:none}
+  .topic summary:hover{background:var(--panel-2)}
+  .topic .order{font-size:11px;color:var(--ink-3);width:22px;text-align:right;font-variant-numeric:tabular-nums}
+  .topic .ttl{flex:1;font-size:14px}
+  .topic.mastered .ttl{color:var(--ink-3)}
+  .topic-body{padding:12px 6px 16px 38px;border-bottom:1px solid var(--line)}
+  .topic-body .es{font-family:var(--serif);font-size:15px;color:var(--ink-2);line-height:1.5;margin-bottom:10px}
+  .topic-body .ex{font-family:var(--serif);font-size:15px;color:var(--ink-2);padding:8px 12px;background:var(--bg);border-radius:6px;border-left:2px solid var(--line);margin-bottom:6px}
+  .topic-body .ex s{text-decoration-color:var(--red)}
+  .topic-body .ex em{color:var(--green);font-style:normal}
+  .topic-body .ex small{display:block;color:var(--ink-3);font-family:var(--sans);font-size:12px;margin-top:2px}
+  .filters .pill.on{background:var(--panel-2);color:var(--ink)}
+  .gcard footer form{display:inline}
+</style>
+{% endblock %}

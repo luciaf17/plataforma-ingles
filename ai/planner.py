@@ -630,6 +630,77 @@ def generate_plan(learner, selection):
     return plan
 
 
+# --------------------------------------------------------------------------- drills (spec 7b: "Drill this now")
+
+DRILL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string"},
+        "summary": {"type": "string"},
+        "prompts": {"type": "array", "items": {"type": "string"}},
+        "wrap_up": {"type": "string"},
+    },
+    "required": ["title", "summary", "prompts", "wrap_up"],
+    "additionalProperties": False,
+}
+DRILL_MINUTES = 5
+
+
+@transaction.atomic
+def prepare_drill(learner, *, grammar_topic=None, errors=(), on=None, duration=DRILL_MINUTES):
+    """A five-minute speaking lesson with a single drill phase on one structure
+    and/or a set of errors. Always creates a new lesson; never replaces today's."""
+    on = on or timezone.localdate()
+    errors = list(errors)
+    if grammar_topic is None and not errors:
+        raise NothingToPlan("Nothing to drill: no grammar topic and no errors")
+    track = choose_track(learner)
+    context = {
+        "grammar_topic": (
+            {"title": grammar_topic.title, "summary_es": grammar_topic.summary_es, "examples": grammar_topic.examples}
+            if grammar_topic else None
+        ),
+        "errors": [{"id": e.id, "learner_produced": e.learner_produced, "correction": e.correction, "subcategory": e.subcategory} for e in errors],
+        "cefr": learner.cefr_for("speaking"),
+        "goal": learner.goal_statement or "technical interviews and daily standups",
+        "duration_min": duration,
+    }
+    messages = [
+        {"role": "system", "content": load_prompt("drill")},
+        {"role": "user", "content": json.dumps(context, ensure_ascii=False, indent=2)},
+    ]
+    chat = client.chat_json(messages, DRILL_SCHEMA, schema_name="drill_plan", temperature=0.6, purpose="drill")
+    data = chat.data
+    title = (data.get("title") or "").strip() or f"Drill: {grammar_topic.title if grammar_topic else 'your errors'}"
+    plan = {
+        "kind": "drill",
+        "title": title,
+        "summary": (data.get("summary") or "").strip(),
+        "tutor_role": "drill coach",
+        "phases": [
+            {"key": "drill", "title": title, "minutes": max(1, duration - 1), "tutor_goal": "One question, one answer, one correction. Keep the pace.", "prompts": [p.strip() for p in data.get("prompts", []) if p.strip()]},
+            {"key": "wrap_up", "title": "Wrap-up", "minutes": 1, "tutor_goal": "Name the structure and what to watch for.", "prompts": [(data.get("wrap_up") or "").strip()]},
+        ],
+        "targeted_errors": [{"id": e.id, "learner_produced": e.learner_produced, "correction": e.correction, "how_to_elicit": "Ask a question whose answer needs the corrected form."} for e in errors],
+        "targeted_error_ids": [e.id for e in errors],
+        "vocabulary": [],
+        "due_vocab_ids": [],
+        "if_stuck_hints": [],
+        "skill": "speaking",
+        "track": track.slug,
+        "topic_id": None,
+        "grammar_topic_id": grammar_topic.id if grammar_topic else None,
+        "grammar_reason": "drill",
+        "duration_min": duration,
+        "generated_at": timezone.now().isoformat(),
+        "_meta": {"model": chat.model, "prompt_tokens": chat.prompt_tokens, "completion_tokens": chat.completion_tokens},
+    }
+    return Lesson.objects.create(
+        learner=learner, track=track, topic=None, grammar_topic=grammar_topic, skill="speaking",
+        status=Lesson.Status.PLANNED, plan=plan, scheduled_for=on,
+    )
+
+
 # --------------------------------------------------------------------------- entry point
 
 

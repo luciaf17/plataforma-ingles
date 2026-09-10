@@ -10,7 +10,8 @@ urlpatterns = [
     path("today/drop/<int:lesson_id>/", views.drop_lesson, name="drop_lesson"),
     # Placeholder routes so the sidebar is navigable before each screen exists.
     # Each one gets replaced by its real view in the module that builds it.
-    path("grammar/", views.placeholder, {"section": "grammar"}, name="grammar"),
+    path("grammar/", views.grammar_page, name="grammar"),
+    path("grammar/drill/", views.start_drill, name="start_drill"),
     path("vocabulary/", views.placeholder, {"section": "vocabulary"}, name="vocabulary"),
     path("errors/", views.placeholder, {"section": "errors"}, name="errors"),
     path("progress/", views.placeholder, {"section": "progress"}, name="progress"),

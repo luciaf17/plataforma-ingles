@@ -10,16 +10,15 @@ from django.views.static import serve
 
 from ai import client, planner
 from ai.models import ApiCall
-from learners.models import Learner, Topic, Track
+from learners.models import GrammarTopic, Learner, Topic, Track
 from lessons.models import ErrorItem, Lesson
 
-from . import dashboard
+from . import dashboard, grammar
 
 log = logging.getLogger("core.views")
 
 # Title and subtitle per sidebar section, lifted from the prototype copy.
 SECTIONS = {
-    "grammar": ("Grammar", "Built from your own errors, not a textbook index."),
     "vocabulary": ("Vocabulary", "Words you looked up, words the tutor planted, and words you've started using on your own."),
     "errors": ("My errors", "Every error you've made, where it came from, and how close it is to being gone."),
     "progress": ("Progress", "The number that matters is the last one."),
@@ -112,6 +111,51 @@ def prepare_today(request):
         return redirect("core:today")
     status = 503 if error else 200
     return render(request, "core/_today_lesson.html", lesson_card_context(request, learner, lesson, error=error), status=status)
+
+
+@login_required
+def grammar_page(request):
+    """Spec 7b: the A2 -> B2 program with statuses on top, recurring errors below."""
+    learner = Learner.for_user(request.user)
+    filter_key = request.GET.get("f", "all")
+    context = {
+        "section": "grammar",
+        "title": "Grammar",
+        "program": grammar.program(learner),
+        "program_progress": dashboard.program_progress(learner),
+        "patterns": grammar.recurring_errors(learner, filter_key),
+        "filter": filter_key,
+        "filters": grammar.FILTERS,
+        "due_count": ErrorItem.objects.due_for(learner).count(),
+    }
+    return render(request, "core/grammar.html", context)
+
+
+@login_required
+@require_POST
+def start_drill(request):
+    """'Drill this now' / 'Drill' / 'Drill what's due': a 5-minute drill lesson on one thing."""
+    learner = Learner.for_user(request.user)
+    topic = None
+    errors = []
+    topic_id = request.POST.get("topic")
+    subcategory = request.POST.get("subcategory")
+    if topic_id:
+        topic = GrammarTopic.objects.filter(id=topic_id).first()
+        if topic is None:
+            raise Http404
+        errors = list(ErrorItem.objects.filter(learner=learner, status="active", subcategory__in=topic.related_subcategories or [])[:6])
+    elif subcategory:
+        errors = list(ErrorItem.objects.filter(learner=learner, status="active", subcategory=subcategory)[:6])
+        topic = planner.topic_for_error(errors[0], learner) if errors else None
+    else:
+        errors = list(ErrorItem.objects.due_for(learner)[:8])
+    try:
+        lesson = planner.prepare_drill(learner, grammar_topic=topic, errors=errors)
+    except (client.AIUnavailable, planner.NothingToPlan) as exc:
+        log.error("drill could not be prepared: %s", exc)
+        return render(request, "lessons/unavailable.html", {"section": "grammar", "title": "Drill", "error": str(exc)}, status=503)
+    return redirect("lessons:runner", lesson_id=lesson.id)
 
 
 @login_required
