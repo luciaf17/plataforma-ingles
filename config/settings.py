@@ -157,5 +157,8 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "plain"}},
     "loggers": {
         "ai": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "lessons": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        # Tracebacks of 500s reach the platform logs when DEBUG is off.
+        "django.request": {"handlers": ["console"], "level": "ERROR", "propagate": False},
     },
 }
