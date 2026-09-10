@@ -11,7 +11,7 @@ from django.views.static import serve
 from ai import client, planner
 from ai.models import ApiCall
 from learners.models import GrammarTopic, Learner, Topic, Track
-from lessons.models import ErrorItem, Lesson
+from lessons.models import ErrorItem, Lesson, VocabItem
 
 from . import dashboard, grammar
 
@@ -19,8 +19,6 @@ log = logging.getLogger("core.views")
 
 # Title and subtitle per sidebar section, lifted from the prototype copy.
 SECTIONS = {
-    "vocabulary": ("Vocabulary", "Words you looked up, words the tutor planted, and words you've started using on your own."),
-    "errors": ("My errors", "Every error you've made, where it came from, and how close it is to being gone."),
     "progress": ("Progress", "The number that matters is the last one."),
 }
 
@@ -111,6 +109,133 @@ def prepare_today(request):
         return redirect("core:today")
     status = 503 if error else 200
     return render(request, "core/_today_lesson.html", lesson_card_context(request, learner, lesson, error=error), status=status)
+
+
+ERROR_FILTERS = [
+    ("active", "Active"), ("due", "Due today"), ("grammar", "Grammar"), ("vocabulary", "Vocabulary"),
+    ("fluency", "Fluency"), ("discourse", "Discourse"), ("mastered", "Mastered"), ("dismissed", "Dismissed"),
+]
+
+
+def error_rows(learner, filter_key):
+    today = timezone.localdate()
+    qs = ErrorItem.objects.filter(learner=learner).select_related("source_lesson")
+    if filter_key == "due":
+        qs = ErrorItem.objects.due_for(learner).select_related("source_lesson")
+    elif filter_key in ("grammar", "vocabulary", "fluency", "discourse", "pronunciation"):
+        qs = qs.filter(status="active", category=filter_key)
+    elif filter_key in ("mastered", "dismissed"):
+        qs = qs.filter(status=filter_key)
+    else:
+        qs = qs.filter(status="active")
+    return [error_row(e, today) for e in qs.order_by("-occurrences", "next_review_at", "-last_seen_at")]
+
+
+def error_row(e, today=None):
+    today = today or timezone.localdate()
+    lesson = e.source_lesson
+    return {
+        "error": e,
+        "boxes": [i < e.srs_box for i in range(5)],
+        "source": f"{lesson.get_skill_display()}, {lesson.scheduled_for:%b %d}".replace(" 0", " ") if lesson else "",
+        "due": e.status == "active" and e.next_review_at <= today,
+    }
+
+
+def error_counts(learner):
+    active = ErrorItem.objects.filter(learner=learner, status="active")
+    return {
+        "active": active.count(),
+        "due": ErrorItem.objects.due_for(learner).count(),
+        "mastered": ErrorItem.objects.filter(learner=learner, status="mastered").count(),
+        "dismissed": ErrorItem.objects.filter(learner=learner, status="dismissed").count(),
+    }
+
+
+@login_required
+def errors_page(request):
+    """Spec 8.6: filterable table with SRS boxes and manual dismiss."""
+    learner = Learner.for_user(request.user)
+    filter_key = request.GET.get("f", "active")
+    if filter_key not in dict(ERROR_FILTERS):
+        filter_key = "active"
+    counts = error_counts(learner)
+    context = {
+        "section": "errors",
+        "title": "My errors",
+        "rows": error_rows(learner, filter_key),
+        "filter": filter_key,
+        "filters": ERROR_FILTERS,
+        "counts": counts,
+    }
+    return render(request, "core/errors.html", context)
+
+
+@login_required
+@require_POST
+def error_status(request, error_id):
+    """Dismiss (or restore) one error. Answers the HTMX row or redirects."""
+    learner = Learner.for_user(request.user)
+    error = ErrorItem.objects.filter(id=error_id, learner=learner).first()
+    if error is None:
+        raise Http404
+    action = request.POST.get("action", "dismiss")
+    if action == "dismiss":
+        error.status = ErrorItem.Status.DISMISSED
+    elif action == "restore":
+        error.status = ErrorItem.Status.ACTIVE
+        error.srs_box = 0
+        error.next_review_at = timezone.localdate()
+    error.save()
+    if request.headers.get("HX-Request"):
+        return render(request, "core/_error_row.html", {"row": error_row(error), "just_changed": True})
+    return redirect(request.POST.get("next") or "/errors/")
+
+
+VOCAB_FILTERS = [("target", "Target"), ("emerging", "Emerging"), ("acquired", "Acquired")]
+
+
+@login_required
+def vocabulary_page(request):
+    """Spec 8.5: cards by status target / emerging / acquired."""
+    learner = Learner.for_user(request.user)
+    filter_key = request.GET.get("f", "target")
+    if filter_key not in dict(VOCAB_FILTERS):
+        filter_key = "target"
+    counts = {key: VocabItem.objects.filter(learner=learner, status=key).count() for key, _ in VOCAB_FILTERS}
+    items = VocabItem.objects.filter(learner=learner, status=filter_key).select_related("track").order_by("next_review_at", "term")
+    context = {
+        "section": "vocabulary",
+        "title": "Vocabulary",
+        "items": items,
+        "filter": filter_key,
+        "filters": VOCAB_FILTERS,
+        "counts": counts,
+        "due_count": VocabItem.objects.due_for(learner).count(),
+    }
+    return render(request, "core/vocabulary.html", context)
+
+
+@login_required
+@require_POST
+def vocab_status(request, item_id):
+    """Manual moves: mark acquired, back to target, or remove."""
+    learner = Learner.for_user(request.user)
+    item = VocabItem.objects.filter(id=item_id, learner=learner).first()
+    if item is None:
+        raise Http404
+    action = request.POST.get("action")
+    if action == "acquired":
+        item.status = VocabItem.Status.ACQUIRED
+        item.save()
+    elif action == "target":
+        item.status = VocabItem.Status.TARGET
+        item.srs_box = 0
+        item.next_review_at = timezone.localdate()
+        item.save()
+    elif action == "remove":
+        item.delete()
+    return redirect(request.POST.get("next") or "/vocabulary/")
 
 
 @login_required

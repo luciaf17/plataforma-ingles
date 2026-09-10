@@ -100,5 +100,5 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 14 | listening | done |
 | 15 | mini-lesson in text | done |
 | 16 | grammar | done |
-| 17 | errors + vocab | pending |
+| 17 | errors + vocab | done |
 | 18 | cron | pending |

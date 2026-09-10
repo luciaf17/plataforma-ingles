@@ -1,0 +1,14 @@
+<tr id="error-{{ row.error.id }}" class="{% if row.due %}due{% endif %}{% if just_changed %} changed{% endif %}">
+  <td class="q"><s>{{ row.error.learner_produced }}</s><div>{{ row.error.correction }}<span>{{ row.error.explanation }}</span></div></td>
+  <td>{{ row.error.get_category_display }} · {{ row.error.get_subcategory_display|lower }}{% if row.error.confidence != 'high' %} <small style="color:var(--ink-3)">· {{ row.error.confidence }}</small>{% endif %}</td>
+  <td>{{ row.source }}</td>
+  <td>{{ row.error.occurrences }}×{% if row.due %}<span class="pill amber due-pill">due</span>{% endif %}</td>
+  <td>{% if row.error.status == 'mastered' %}<span class="pill green">mastered</span>{% elif row.error.status == 'dismissed' %}<span class="pill">dismissed</span>{% else %}<span class="box">{% for filled in row.boxes %}<i class="{% if filled %}f{% endif %}"></i>{% endfor %}</span>{% endif %}</td>
+  <td>
+    {% if row.error.status == 'active' %}
+      <form hx-post="{% url 'core:error_status' row.error.id %}" hx-target="#error-{{ row.error.id }}" hx-swap="outerHTML" method="post" action="{% url 'core:error_status' row.error.id %}">{% csrf_token %}<input type="hidden" name="action" value="dismiss"><button class="act" type="submit">Dismiss</button></form>
+    {% elif row.error.status == 'dismissed' %}
+      <form hx-post="{% url 'core:error_status' row.error.id %}" hx-target="#error-{{ row.error.id }}" hx-swap="outerHTML" method="post" action="{% url 'core:error_status' row.error.id %}">{% csrf_token %}<input type="hidden" name="action" value="restore"><input type="hidden" name="next" value="/errors/?f=dismissed"><button class="act" type="submit">Restore</button></form>
+    {% endif %}
+  </td>
+</tr>

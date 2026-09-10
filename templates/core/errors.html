@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>My errors</h1><p>Every error you've made, where it came from, and how close it is to being gone.</p></div>
+  <form method="post" action="{% url 'core:start_drill' %}">{% csrf_token %}<button class="btn primary" type="submit" {% if not counts.due %}disabled{% endif %}>Practice the {{ counts.due }} due</button></form>
+</div>
+
+<div class="filters">
+  {% for key, label in filters %}
+    <a class="pill {% if filter == key %}on{% endif %}" href="?f={{ key }}">{{ label }}{% if key == 'active' %} · {{ counts.active }}{% elif key == 'due' %} · {{ counts.due }}{% elif key == 'mastered' %} · {{ counts.mastered }}{% elif key == 'dismissed' and counts.dismissed %} · {{ counts.dismissed }}{% endif %}</a>
+  {% endfor %}
+</div>
+
+{% if rows %}
+<div class="card" style="padding:6px 10px">
+  <table>
+    <thead><tr><th>What you said</th><th>Type</th><th>Source</th><th>Seen</th><th>Progress</th><th></th></tr></thead>
+    <tbody>
+      {% for row in rows %}
+        {% include "core/_error_row.html" %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+  <div class="empty">{% if filter == 'active' %}No active errors. Your next lesson will add some; that's the point.{% else %}Nothing here.{% endif %}</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+  .filters .pill.on{background:var(--panel-2);color:var(--ink)}
+  tr.due td.q s{text-decoration-color:var(--amber)}
+  td .due-pill{margin-left:6px}
+  tr.changed{opacity:.45}
+  td form{display:inline}
+</style>
+{% endblock %}
