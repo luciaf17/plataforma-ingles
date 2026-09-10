@@ -275,8 +275,93 @@ WRITING_PLAN_SCHEMA = {
     "additionalProperties": False,
 }
 
-# One schema per skill (spec 9.2). Listening / reading land with their runners.
-PLAN_SCHEMAS = {"speaking": SPEAKING_PLAN_SCHEMA, "writing": WRITING_PLAN_SCHEMA}
+QUESTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "type": {"type": "string", "enum": ["gist", "detail", "inference"]},
+        "question": {"type": "string"},
+        "options": {"type": "array", "items": {"type": "string"}},
+        "answer_index": {"type": "integer"},
+        "explanation": {"type": "string"},
+    },
+    "required": ["type", "question", "options", "answer_index", "explanation"],
+    "additionalProperties": False,
+}
+
+GLOSSARY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "term": {"type": "string"},
+        "definition_en": {"type": "string"},
+        "example": {"type": "string"},
+    },
+    "required": ["term", "definition_en", "example"],
+    "additionalProperties": False,
+}
+
+READING_PLAN_SCHEMA = {
+    "type": "object",
+    "properties": {
+        **SPEAKING_PLAN_SCHEMA["properties"],
+        "reading_task": {
+            "type": "object",
+            "properties": {
+                "format": {"type": "string"},
+                "headline": {"type": "string"},
+                "text": {"type": "string"},
+                "glossary": {"type": "array", "items": GLOSSARY_SCHEMA},
+                "questions": {"type": "array", "items": QUESTION_SCHEMA},
+                "production_prompt": {"type": "string"},
+                "production_terms": {"type": "array", "items": {"type": "string"}},
+                "production_words_min": {"type": "integer"},
+                "production_words_max": {"type": "integer"},
+            },
+            "required": [
+                "format", "headline", "text", "glossary", "questions", "production_prompt",
+                "production_terms", "production_words_min", "production_words_max",
+            ],
+            "additionalProperties": False,
+        },
+    },
+    "required": SPEAKING_PLAN_SCHEMA["required"] + ["reading_task"],
+    "additionalProperties": False,
+}
+
+# One schema per skill (spec 9.2). Listening lands with its runner.
+PLAN_SCHEMAS = {"speaking": SPEAKING_PLAN_SCHEMA, "writing": WRITING_PLAN_SCHEMA, "reading": READING_PLAN_SCHEMA}
+
+
+def normalise_reading_task(task):
+    """Questions get ids, options are trimmed to four, answer_index is kept in range."""
+    task = dict(task or {})
+    questions = []
+    for index, q in enumerate(task.get("questions", [])):
+        options = [o.strip() for o in q.get("options", []) if o and o.strip()][:4]
+        if len(options) < 2:
+            continue
+        answer = q.get("answer_index", 0)
+        if not isinstance(answer, int) or not 0 <= answer < len(options):
+            answer = 0
+        questions.append({**q, "id": index + 1, "options": options, "answer_index": answer})
+    task["questions"] = questions
+    glossary = []
+    for g in task.get("glossary", []):
+        term = (g.get("term") or "").strip()
+        if term.lower().startswith("to "):
+            term = term[3:].strip()
+        if term:
+            glossary.append({**g, "term": term})
+    task["glossary"] = glossary
+    task["word_count"] = len((task.get("text") or "").split())
+    return task
+
+
+# Reading texts below this share of the expected length get one regeneration.
+READING_MIN_WORDS = {10: 180, 15: 240, 20: 300, 30: 400}
+
+
+def reading_words_expected(duration):
+    return READING_MIN_WORDS.get(duration, 300)
 
 
 def build_context(learner, selection):
@@ -351,6 +436,7 @@ def normalise_plan(data, learner, selection):
         "due_vocab_ids": [v.id for v in selection.due_vocab],
         "if_stuck_hints": data.get("if_stuck_hints", []),
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
+        "reading_task": normalise_reading_task(data.get("reading_task")) if selection.skill == "reading" else None,
         "learner_request": selection.request or "",
         "skill": selection.skill,
         "track": selection.track.slug,
@@ -372,6 +458,17 @@ def generate_plan(learner, selection):
     ]
     chat = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
     plan = normalise_plan(chat.data, learner, selection)
+    if selection.skill == "reading":
+        expected = reading_words_expected(selection.duration)
+        got = (plan.get("reading_task") or {}).get("word_count", 0)
+        if got < expected * 0.8:
+            log.warning("reading text too short (%d words, expected %d); regenerating once", got, expected)
+            messages.append({"role": "assistant", "content": chat.content})
+            messages.append({"role": "user", "content": f"The text has {got} words; it must have at least {expected}. Rewrite the whole plan with a full-length text, keeping the same format and topic."})
+            retry = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
+            retry_plan = normalise_plan(retry.data, learner, selection)
+            if (retry_plan.get("reading_task") or {}).get("word_count", 0) > got:
+                plan, chat = retry_plan, retry
     plan["_meta"] = {"model": chat.model, "prompt_tokens": chat.prompt_tokens, "completion_tokens": chat.completion_tokens}
     log.info(
         "plan generated skill=%s topic=%r grammar=%s targeted=%d tokens=%d+%d",

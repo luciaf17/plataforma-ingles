@@ -22,3 +22,11 @@ def tutor_line(text):
 def mmss(seconds):
     seconds = int(seconds or 0)
     return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+
+@register.filter
+def get_item(mapping, key):
+    """`{{ answers|get_item:q.id }}` for dicts keyed by int or str."""
+    if not mapping:
+        return None
+    return mapping.get(key, mapping.get(str(key)))

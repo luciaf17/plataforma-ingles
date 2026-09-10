@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static lesson_extras %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Reading · {{ lesson.track.name }} track · {{ task.format|default:"Text" }} · {{ task.word_count|default:"" }} words · Tap any word for a definition{% if lesson.grammar_topic %} · Mini-lesson: {{ lesson.grammar_topic.title }}{% endif %}</p>
+  </div>
+</div>
+
+<div class="lesson reading">
+  <div class="card stage">
+    <div class="kicker">{{ task.format|default:"Text" }}</div>
+    <h2 class="headline">{{ task.headline }}</h2>
+    <div class="text" id="reading-text">
+      {% for p in paragraphs %}<p>{{ p|linebreaksbr }}</p>{% endfor %}
+    </div>
+
+    <form method="post" action="{% url 'lessons:reading_submit' lesson.id %}" id="reading-form">
+      {% csrf_token %}
+      <h3 style="margin-top:26px">Questions</h3>
+      {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+      <ol class="questions">
+        {% for q in task.questions %}
+          <li>
+            <p class="q-text"><span class="pill">{{ q.type }}</span> {{ q.question }}</p>
+            <div class="options">
+              {% for o in q.options %}
+                <label><input type="radio" name="q{{ q.id }}" value="{{ forloop.counter0 }}" {% if answers|get_item:q.id == forloop.counter0 %}checked{% endif %} required> {{ o }}</label>
+              {% endfor %}
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
+
+      <h3 style="margin-top:22px">Now write</h3>
+      <p class="prompt">{{ task.production_prompt }}</p>
+      {% if task.production_terms %}<p class="hint" style="margin:6px 0 10px">Use: {% for t in task.production_terms %}<b>{{ t }}</b>{% if not forloop.last %}, {% endif %}{% endfor %} · {{ task.production_words_min }}–{{ task.production_words_max }} words</p>{% endif %}
+      <textarea name="production" id="production" rows="6" placeholder="Write here.">{{ production }}</textarea>
+      <div class="bar-row">
+        <span class="counter" id="counter">0 words</span>
+        <button class="btn primary" type="submit" id="submit">Hand it in</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="aside">
+    <div class="card">
+      <h3>Glossary <small>tap a word in the text too</small></h3>
+      <dl class="glossary">
+        {% for g in task.glossary %}
+          <dt data-glossary="{{ g.term|lower }}">{{ g.term }}</dt>
+          <dd>{{ g.definition_en }}</dd>
+        {% empty %}
+          <dd class="hint">No glossary for this text.</dd>
+        {% endfor %}
+      </dl>
+    </div>
+    <div class="card" id="lookup" hidden>
+      <h3>Looked up</h3>
+      <div id="lookup-body"></div>
+    </div>
+    <div class="card">
+      <h3>Targeted today</h3>
+      {% if targeted %}
+        <ul class="plan">{% for t in targeted %}<li><span><s>{{ t.learner_produced }}</s><br>{{ t.correction }}</span></li>{% endfor %}</ul>
+      {% else %}
+        <p class="hint">Nothing from your file is due today.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{{ config|json_script:"reading-config" }}
+{% endblock %}
+
+{% block head %}
+<style>
+  .reading .stage{min-height:0}
+  .reading .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .headline{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.2;margin-bottom:14px}
+  .text{font-family:var(--serif);font-size:17px;line-height:1.65}
+  .text p{margin-bottom:14px}
+  .text .w{cursor:pointer;border-radius:3px}
+  .text .w:hover{background:var(--panel-2)}
+  .text .w.gl{border-bottom:1px dotted var(--amber)}
+  .text .w.seen{background:var(--amber-soft)}
+  .questions{list-style:none;display:flex;flex-direction:column;counter-reset:q}
+  .questions>li{padding:12px 0;border-bottom:1px solid var(--line)}
+  .questions>li:last-child{border:0}
+  .q-text{font-family:var(--serif);font-size:16px;margin-bottom:8px}
+  .options{display:flex;flex-direction:column;gap:4px;font-size:14px;color:var(--ink-2)}
+  .options label{display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;cursor:pointer}
+  .options label:hover{background:var(--panel-2)}
+  .options input{accent-color:var(--amber);margin-top:3px}
+  .prompt{font-family:var(--serif);font-size:17px;line-height:1.4}
+  textarea#production{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:12px;font-family:var(--serif);font-size:16px;line-height:1.5;resize:vertical;min-height:140px}
+  .bar-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px}
+  .counter{font-variant-numeric:tabular-nums;color:var(--ink-3);font-size:13px}
+  .form-error{color:var(--red);margin:8px 0;font-size:13px}
+  .glossary{display:flex;flex-direction:column;gap:2px}
+  .glossary dt{font-family:var(--serif);font-size:15px;color:var(--ink);cursor:pointer;margin-top:8px}
+  .glossary dt:hover{color:var(--amber)}
+  .glossary dd{font-size:13px;color:var(--ink-2)}
+  #lookup-body b{font-family:var(--serif);font-size:18px;font-weight:500;display:block}
+  #lookup-body p{font-size:13px;color:var(--ink-2);margin-top:4px}
+  #lookup-body q{font-family:var(--serif);font-size:14px;color:var(--ink-3);quotes:none;display:block;margin-top:6px;font-style:italic}
+  #lookup-body .es{color:var(--amber);margin-top:6px}
+  .plan li s{color:var(--ink-3);text-decoration-color:var(--red)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/reading.js' %}"></script>
+{% endblock %}

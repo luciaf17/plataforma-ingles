@@ -8,12 +8,12 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from ai import analyzer, client, planner, tutor, writing
+from ai import analyzer, client, planner, tutor, vocab, writing
 from learners.models import Learner
 
 from . import postprocess
 from .diff import change_count, diff_html
-from .models import ErrorItem, Lesson, LessonReport, Turn
+from .models import ErrorItem, Lesson, LessonReport, Turn, VocabItem
 from .templatetags.lesson_extras import tutor_line
 
 log = logging.getLogger("lessons.views")
@@ -74,6 +74,11 @@ def writing_today(request):
     return skill_today(request, "writing")
 
 
+@login_required
+def reading_today(request):
+    return skill_today(request, "reading")
+
+
 def _start(lesson):
     if lesson.status == Lesson.Status.PLANNED:
         lesson.status = Lesson.Status.IN_PROGRESS
@@ -92,7 +97,151 @@ def runner(request, lesson_id):
     _start(lesson)
     if lesson.skill == "writing":
         return writing_runner(request, lesson)
+    if lesson.skill == "reading":
+        return reading_runner(request, lesson)
     return speaking_runner(request, lesson)
+
+
+def reading_context(request, lesson, *, answers=None, production="", error=""):
+    plan = lesson.plan or {}
+    task = plan.get("reading_task") or {}
+    return {
+        "section": "reading",
+        "title": plan.get("title") or lesson.title,
+        "lesson": lesson,
+        "plan": plan,
+        "task": task,
+        "paragraphs": [p.strip() for p in (task.get("text") or "").split("\n\n") if p.strip()],
+        "targeted": plan.get("targeted_errors", []),
+        "answers": answers or {},
+        "production": production,
+        "error": error,
+        "config": {"vocab_url": f"/lessons/{lesson.id}/vocab/", "glossary": task.get("glossary", [])},
+    }
+
+
+def reading_runner(request, lesson):
+    return render(request, "lessons/reading.html", reading_context(request, lesson))
+
+
+def grade_questions(task, answers):
+    """Multiple choice is graded here, no model involved."""
+    rows, score = [], 0
+    for q in task.get("questions", []):
+        chosen = answers.get(q["id"])
+        ok = chosen is not None and chosen == q["answer_index"]
+        score += ok
+        rows.append({
+            "id": q["id"], "type": q["type"], "question": q["question"], "options": q["options"],
+            "chosen": chosen, "answer_index": q["answer_index"], "ok": ok, "explanation": q.get("explanation", ""),
+        })
+    return score, rows
+
+
+@login_required
+@require_POST
+def reading_submit(request, lesson_id):
+    """Grade the questions, correct the short production, write the file, show the report."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "reading":
+        return JsonResponse({"error": "Not a reading lesson"}, status=409)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    task = (lesson.plan or {}).get("reading_task") or {}
+    answers = {}
+    for q in task.get("questions", []):
+        raw = request.POST.get(f"q{q['id']}")
+        if raw is not None and raw.isdigit():
+            answers[q["id"]] = int(raw)
+    production = (request.POST.get("production") or "").strip()
+    missing = [q["id"] for q in task.get("questions", []) if q["id"] not in answers]
+    if missing or len(production.split()) < 15:
+        error = "Answer every question and write at least 15 words before handing in." if missing else "Write at least 15 words in your answer."
+        return render(request, "lessons/reading.html", reading_context(request, lesson, answers=answers, production=production, error=error), status=422)
+
+    _start(lesson)
+    turn = lesson.turns.filter(role=Turn.Role.LEARNER).order_by("-sequence").first()
+    if turn is None or turn.text != production:
+        turn = Turn.objects.create(lesson=lesson, role=Turn.Role.LEARNER, text=production, phase="practice", sequence=next_sequence(lesson))
+    score, rows = grade_questions(task, answers)
+
+    plan = lesson.plan or {}
+    targeted = [
+        {"id": e.id, "learner_produced": e.learner_produced, "correction": e.correction, "subcategory": e.subcategory}
+        for e in ErrorItem.objects.filter(id__in=plan.get("targeted_error_ids", []))
+    ]
+    writing_task = {
+        "format": "short written answer after reading",
+        "prompt": task.get("production_prompt", ""),
+        "context": task.get("headline", ""),
+        "target_words_min": task.get("production_words_min", 60),
+        "target_words_max": task.get("production_words_max", 120),
+        "must_use_vocabulary": task.get("production_terms", []),
+    }
+    try:
+        result = writing.correct_text(
+            production, task=writing_task, cefr=lesson.learner.cefr_for("reading"), target_level=lesson.learner.target_level,
+            targeted_errors=targeted, lesson_id=lesson.id,
+        )
+    except client.AIUnavailable as exc:
+        log.error("reading correction failed for lesson %s: %s", lesson.id, exc)
+        return render(request, "lessons/reading.html", reading_context(
+            request, lesson, answers=answers, production=production,
+            error=f"The corrector is unavailable right now ({exc}). Your answers are kept; try again in a moment.",
+        ), status=503)
+
+    lesson.status = Lesson.Status.COMPLETED
+    lesson.completed_at = timezone.now()
+    if lesson.started_at:
+        lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
+    lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
+    result.analysis.cefr_signal = {**result.analysis.cefr_signal, "skill": "reading"}
+    result.analysis.raw = {
+        **result.analysis.raw,
+        "reading": {"score": score, "total": len(rows), "questions": rows, "glossary_terms": [g["term"] for g in task.get("glossary", [])]},
+        "writing": {
+            "original_text": production,
+            "corrected_text": result.corrected_text,
+            "upgraded_text": result.upgraded_text,
+            "upgrade_notes_es": result.upgrade_notes_es,
+        },
+    }
+    postprocess.apply_analysis(lesson, result.analysis, confidence="high")
+    return redirect("lessons:report", lesson_id=lesson.id)
+
+
+@login_required
+@require_POST
+def vocab_lookup(request, lesson_id):
+    """A tapped word: glossary first, else the model; either way it lands in the file as a target (spec 5.3)."""
+    lesson = own_lesson(request, lesson_id)
+    word = (request.POST.get("word") or "").strip().lower().strip(".,;:!?\"'()[]")
+    sentence = (request.POST.get("sentence") or "").strip()[:400]
+    if not word or len(word) > 60:
+        return JsonResponse({"error": "No word"}, status=400)
+    task = (lesson.plan or {}).get("reading_task") or {}
+    entry = next((g for g in task.get("glossary", []) if g.get("term", "").lower() == word), None)
+    if entry is None:
+        # "rolled" should find "roll back": match on shared stems of at least four letters.
+        def matches(term):
+            return any(len(min(word, part, key=len)) >= 4 and (word.startswith(part) or part.startswith(word)) for part in term.lower().split())
+
+        entry = next((g for g in task.get("glossary", []) if matches(g.get("term", ""))), None)
+    if entry:
+        data = {"term": entry["term"].lower(), "definition_en": entry.get("definition_en", ""), "example": entry.get("example", ""), "note_es": "", "source": "glossary"}
+    else:
+        try:
+            data = {**vocab.define(word, sentence=sentence, cefr=lesson.learner.cefr_for("reading"), lesson_id=lesson.id), "source": "model"}
+        except client.AIUnavailable as exc:
+            return JsonResponse({"error": f"Could not look that up ({exc})."}, status=503)
+    item, created = VocabItem.objects.get_or_create(
+        learner=lesson.learner, term=data["term"],
+        defaults={"definition_en": data["definition_en"], "example_sentence": data["example"], "track": lesson.track, "status": VocabItem.Status.TARGET},
+    )
+    if not created and not item.definition_en and data["definition_en"]:
+        item.definition_en, item.example_sentence = data["definition_en"], data["example"]
+        item.save(update_fields=["definition_en", "example_sentence"])
+    return JsonResponse({**data, "status": item.status, "created": created})
 
 
 def writing_runner(request, lesson):
@@ -259,6 +408,7 @@ def report(request, lesson_id):
         return [by_id[i] for i in meta.get(key, []) if i in by_id]
 
     learner_turns = lesson.turns.filter(role=Turn.Role.LEARNER)
+    reading_data = (lesson_report.raw_analysis or {}).get("reading")
     writing_data = (lesson_report.raw_analysis or {}).get("writing")
     if writing_data:
         writing_data = {
@@ -268,8 +418,9 @@ def report(request, lesson_id):
             "word_count": len(writing_data.get("original_text", "").split()),
         }
     context = {
-        "section": lesson.skill if lesson.skill in ("speaking", "writing") else "speaking",
+        "section": lesson.skill if lesson.skill in ("speaking", "writing", "reading") else "speaking",
         "writing": writing_data,
+        "reading": reading_data,
         "title": lesson.title,
         "lesson": lesson,
         "report": lesson_report,

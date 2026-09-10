@@ -20,7 +20,6 @@ log = logging.getLogger("core.views")
 # Title and subtitle per sidebar section, lifted from the prototype copy.
 SECTIONS = {
     "listening": ("Listening", "Two listens max. You'll see the transcript after you answer."),
-    "reading": ("Reading", "Real formats: issues, docs, emails, engineering blogs."),
     "grammar": ("Grammar", "Built from your own errors, not a textbook index."),
     "vocabulary": ("Vocabulary", "Words you looked up, words the tutor planted, and words you've started using on your own."),
     "errors": ("My errors", "Every error you've made, where it came from, and how close it is to being gone."),

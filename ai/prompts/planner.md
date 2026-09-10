@@ -46,6 +46,21 @@ When `skill` is `writing`, the practice phase is one writing task instead of a c
 
 The task must make the targeted errors necessary, the same rule as speaking: if she drags "I have 5 years working", the task asks about experience; if she drags "depends of", the task asks for a decision that depends on something. For writing, the `phases` still exist but the runner only uses `mini_lesson` and `practice`; keep warm-up, drill and wrap-up prompts short.
 
+## Reading classes
+
+When `skill` is `reading`, the practice phase is a text she reads on her own, and you also return `reading_task`:
+
+- `format`: a real format. Work track: a GitHub issue (with title, description, steps, comments), a fragment of technical documentation, an engineering blog post, an email from a manager, a Slack thread, a postmortem. General track: a newspaper feature, a travel piece, an opinion column, a long message from a friend, a product review.
+- `headline`: the title the text carries.
+- `text`: **at least 300 words, up to 500**, for a 20-minute class (at least 200 for 10 minutes). Count them; a 150-word text is a failed class because the questions have nothing to bite on. At her CEFR plus one step: real, idiomatic English, not simplified; a few structures and words just above her level so the class stretches her. Use plain paragraphs separated by blank lines; for issues and emails, use the conventions of the format (a subject line, a greeting, bullet points written as plain lines starting with "-"). Seed the text with the `due_vocab` terms and the topic's vocabulary, used naturally. Write the whole text; never summarise it.
+- `glossary`: six to ten terms that appear in the text verbatim, chosen because they are useful and a B1 reader would stumble on them: the due vocabulary first, then collocations, phrasal verbs and idioms from the text. `term` exactly as the words appear in the text, lowercase unless a proper noun, no "to" in front of verbs ("look forward to", not "to look forward to"; "rolled back" if the text says "rolled back"), a one-line `definition_en` in simple English, and the `example` sentence taken from the text.
+- `questions`: exactly six multiple-choice comprehension questions in this order: two `gist` (main idea, purpose, tone), three `detail` (facts stated in the text), one `inference` (something implied, or what the writer would think). Four `options` each, one correct, the distractors plausible and taken from the text so that skimming is not enough. `answer_index` is 0-based. `explanation`: one sentence in English quoting the part of the text that settles it.
+- `production_prompt`: one short writing task that forces her to use two or three glossary terms: reply to the email, comment on the issue, summarise the post for a colleague who did not read it. In English, addressed to her.
+- `production_terms`: the two or three glossary terms she must use.
+- `production_words_min` / `production_words_max`: 60 to 120.
+
+The targeted errors matter here too: the production prompt must make the structures necessary (ask about duration if she drags "since", ask for a decision if she drags "depends of").
+
 ## Other fields
 
 - `title`: the class as it appears on her dashboard, one line, in English, specific. "Walking an interviewer through your ERP's architecture", not "Speaking practice".

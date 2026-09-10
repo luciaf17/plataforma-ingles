@@ -72,10 +72,29 @@
   </div>
 </div>
 
+{% if reading %}
+<div class="card" style="margin-top:16px">
+  <h3>Comprehension <small>{{ reading.score }} of {{ reading.total }} correct</small></h3>
+  <ol class="questions">
+    {% for q in reading.questions %}
+      <li class="{% if q.ok %}ok{% else %}miss{% endif %}">
+        <p class="q-text"><span class="pill">{{ q.type }}</span> {{ q.question }}</p>
+        <ul class="options">
+          {% for o in q.options %}
+            <li class="{% if forloop.counter0 == q.answer_index %}right{% endif %}{% if forloop.counter0 == q.chosen and not q.ok %} wrong{% endif %}">{{ o }}{% if forloop.counter0 == q.chosen %} <small>· your answer</small>{% endif %}</li>
+          {% endfor %}
+        </ul>
+        {% if q.explanation %}<p class="hint" style="font-size:13px">{{ q.explanation }}</p>{% endif %}
+      </li>
+    {% endfor %}
+  </ol>
+</div>
+{% endif %}
+
 {% if writing %}
 <div class="grid g2" style="margin-top:16px">
   <div class="card">
-    <h3>Your text, corrected <small>{{ writing.word_count }} words · {{ writing.changes }} change{{ writing.changes|pluralize }}</small></h3>
+    <h3>{% if reading %}Your answer, corrected{% else %}Your text, corrected{% endif %} <small>{{ writing.word_count }} words · {{ writing.changes }} change{{ writing.changes|pluralize }}</small></h3>
     <div class="written diff">{{ writing.diff_html }}</div>
   </div>
   <div class="card upgraded">
@@ -156,6 +175,14 @@
   .diff del{color:var(--red);text-decoration:line-through;text-decoration-color:var(--red);background:var(--red-soft);border-radius:3px}
   .diff ins{color:var(--green);text-decoration:none;background:var(--green-soft);border-radius:3px}
   .upgraded{border-color:var(--green)}
+  .questions{list-style:none;display:flex;flex-direction:column}
+  .questions>li{padding:12px 0;border-bottom:1px solid var(--line)}
+  .questions>li:last-child{border:0}
+  .q-text{font-family:var(--serif);font-size:16px;margin-bottom:6px}
+  .options{list-style:none;display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--ink-2)}
+  .options li{padding:4px 8px;border-radius:6px}
+  .options li.right{color:var(--green);background:var(--green-soft)}
+  .options li.wrong{color:var(--red);background:var(--red-soft)}
   .notes{margin-top:14px;padding-left:18px;color:var(--ink-2);font-size:13px;display:flex;flex-direction:column;gap:6px}
   @media (max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
 </style>
