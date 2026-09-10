@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static lesson_extras %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p>Speaking · {{ lesson.track.name }} track · Tutor voice: Sage{% if plan.tutor_role %} · Role: {{ plan.tutor_role }}{% endif %}</p>
+  </div>
+  <form method="post" action="{% url 'lessons:end' lesson.id %}" onsubmit="return confirm('End the lesson and analyze it?')">
+    {% csrf_token %}
+    <button class="btn" type="submit" id="end-lesson">End lesson</button>
+  </form>
+</div>
+
+<div class="lesson">
+  <div class="card stage">
+    <div class="stage-top">
+      <span class="pill amber" id="phase-pill">Starting…</span>
+      <span class="timer" id="timer">00:00 / {{ plan.duration_min|default:20 }}:00</span>
+    </div>
+
+    <div class="transcript" id="transcript">
+      {% for turn in turns %}
+        {% if turn.role == "tutor" %}
+          <div class="msg tutor">{{ turn.html }}</div>
+        {% else %}
+          <div class="msg you">{{ turn.text }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <div class="mic-wrap">
+      <button class="mic" id="mic" aria-label="Hold to talk" type="button">
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+      <small id="status">Hold to talk · release to send · or hold the space bar</small>
+      <details class="type-instead">
+        <summary>Type instead</summary>
+        <form id="text-form" autocomplete="off">
+          <input type="text" id="text-input" placeholder="Write what you'd say…" maxlength="600">
+          <button class="btn" type="submit">Send</button>
+        </form>
+      </details>
+    </div>
+  </div>
+
+  <div class="aside">
+    <div class="card">
+      <h3>Lesson plan</h3>
+      <ul class="plan" id="plan-list">
+        {% for phase in phases %}
+          <li data-phase="{{ phase.key }}"><span>{{ phase.title }}</span><span>{{ phase.minutes }} min</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Targeted today</h3>
+      {% if targeted %}
+        <ul class="plan">
+          {% for t in targeted %}
+            <li><span><s>{{ t.learner_produced }}</s><br>{{ t.correction }}</span><span class="pill">pending</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="hint">Nothing from your file is due today. The tutor will still recast what it hears.</p>
+      {% endif %}
+    </div>
+    {% if lesson.grammar_topic %}
+    <div class="card">
+      <h3>Mini-lesson</h3>
+      <p class="hint"><b>{{ lesson.grammar_topic.title }}</b></p>
+      {% for ex in lesson.grammar_topic.examples|slice:":2" %}
+        <p class="hint" style="margin-top:8px"><s>{{ ex.wrong }}</s> → {{ ex.right }}</p>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if hints %}
+    <div class="card">
+      <h3>If you get stuck</h3>
+      <p class="hint">Try: {% for h in hints %}<b>"{{ h }}"</b>{% if not forloop.last %} or {% endif %}{% endfor %}. Don't translate, describe.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<audio id="tutor-audio" preload="auto"></audio>
+{{ config|json_script:"lesson-config" }}
+{% endblock %}
+
+{% block head %}
+<style>
+  .mic.recording{background:var(--red);box-shadow:0 0 0 14px var(--red-soft)}
+  .mic:disabled{opacity:.45;cursor:not-allowed}
+  .msg.pending{opacity:.5}
+  .type-instead{margin-top:6px;font-size:12px;color:var(--ink-3)}
+  .type-instead summary{cursor:pointer}
+  .type-instead form{display:flex;gap:8px;margin-top:8px;width:min(560px,90vw)}
+  .type-instead input{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:8px 10px;font:inherit}
+  .plan li s{color:var(--ink-3);text-decoration-color:var(--red)}
+  #status.error{color:var(--red)}
+  .timeup #timer{color:var(--amber)}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/recorder.js' %}"></script>
+{% endblock %}

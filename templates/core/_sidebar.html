@@ -9,7 +9,7 @@
 
   <div class="nav-group">
     <h6>Practice</h6>
-    <a class="nav {% if section == 'speaking' %}active{% endif %}" href="{% url 'core:speaking' %}">
+    <a class="nav {% if section == 'speaking' %}active{% endif %}" href="{% url 'lessons:speaking' %}">
       <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Speaking
     </a>
     <a class="nav {% if section == 'listening' %}active{% endif %}" href="{% url 'core:listening' %}">

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>{{ title }}</h1><p>The class could not be prepared.</p></div>
+</div>
+<div class="card">
+  <h3>Something is off</h3>
+  <p class="hint">{{ error }}</p>
+  <p style="margin-top:14px"><a class="btn" href="{% url 'lessons:speaking' %}">Try again</a></p>
+</div>
+{% endblock %}

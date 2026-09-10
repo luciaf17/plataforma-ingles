@@ -64,6 +64,6 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 5 | `ai/analyzer.py` | done |
 | 6 | `lessons/postprocess.py` | done |
 | 7 | `ai/planner.py` | done |
-| 8 | speaking runner | pending |
+| 8 | speaking runner | done |
 | 9 | lesson report | pending |
 | 10 | deploy | pending |
