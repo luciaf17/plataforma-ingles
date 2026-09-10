@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.static import serve
 
-from ai import client, planner, review as ai_review
+from ai import client, planner, review as ai_review, vocab as ai_vocab
 from learners.models import CEFR_ORDER, GrammarTopic, Learner, Topic, Track
 from lessons.models import ErrorItem, Lesson, ProgressReview, VocabItem
 
@@ -271,6 +271,26 @@ def vocabulary_page(request):
         "due_count": VocabItem.objects.due_for(learner).count(),
     }
     return render(request, "core/vocabulary.html", context)
+
+
+@login_required
+@require_POST
+def vocab_define(request, item_id):
+    """Words the analyzer files as gaps arrive without a definition; fetch one on demand."""
+    learner = Learner.for_user(request.user)
+    item = VocabItem.objects.filter(id=item_id, learner=learner).first()
+    if item is None:
+        raise Http404
+    if not item.definition_en:
+        try:
+            data = ai_vocab.define(item.term, sentence=item.example_sentence, cefr=learner.cefr_for("reading"))
+        except client.AIUnavailable as exc:
+            log.error("could not define %r: %s", item.term, exc)
+            return render(request, "core/_vocab_card.html", {"v": item, "filter": request.POST.get("f", "target"), "error": f"Could not look it up ({exc})."}, status=503)
+        item.definition_en = data["definition_en"]
+        item.example_sentence = item.example_sentence or data["example"]
+        item.save(update_fields=["definition_en", "example_sentence"])
+    return render(request, "core/_vocab_card.html", {"v": item, "filter": request.POST.get("f", "target")})
 
 
 @login_required

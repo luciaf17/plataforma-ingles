@@ -110,7 +110,7 @@ class TurnEndpointTests(TestCase):
         self.assertTrue(data["tutor"]["audio_url"].endswith(".mp3"))
 
         transcribe.assert_called_once()
-        self.assertEqual(respond.call_args.kwargs, {"phase_key": "practice", "event": "turn", "elapsed_in_phase_s": 61})
+        self.assertEqual(respond.call_args.kwargs, {"phase_key": "practice", "event": "turn", "elapsed_in_phase_s": 61, "phase_changed": False})
 
         learner_turn, tutor_turn = Turn.objects.order_by("sequence")
         self.assertEqual((learner_turn.role, learner_turn.phase, learner_turn.audio_duration_ms, learner_turn.sequence), ("learner", "practice", 3200, 1))
@@ -169,7 +169,7 @@ class TurnEndpointTests(TestCase):
         patches = self.patched()
         with patches[1] as respond, patches[2]:
             self.client.post(self.tutor_url, {"phase": "party", "event": "dance"})
-        self.assertEqual(respond.call_args.kwargs, {"phase_key": "warm_up", "event": "phase_start", "elapsed_in_phase_s": 0})
+        self.assertEqual(respond.call_args.kwargs, {"phase_key": "warm_up", "event": "phase_start", "elapsed_in_phase_s": 0, "phase_changed": False})
 
     def test_endpoints_refuse_when_not_in_progress(self):
         self.lesson.status = "planned"
@@ -232,3 +232,35 @@ class SpeakingTodayTests(TestCase):
             response = self.client.get("/speaking/")
         self.assertEqual(response.status_code, 503)
         self.assertIn("could not be prepared", response.content.decode())
+
+
+@override_settings(MEDIA_ROOT="media/test")
+class PhaseChangeTests(TestCase):
+    """The clock moves the phase, but the tutor mentions it in its next reply
+    instead of interrupting with a turn of its own."""
+
+    fixtures = ["seed"]
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("lu", password="pw")
+        self.learner = Learner.for_user(self.user)
+        self.client.login(username="lu", password="pw")
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=Track.objects.get(slug="work"), skill="speaking", status="in_progress",
+            started_at=timezone.now(), plan=PLAN,
+        )
+
+    def test_a_turn_carries_the_phase_change_to_the_tutor(self):
+        with mock.patch.object(views.tutor, "respond", return_value="Good. Let's switch: I'm the CTO now.") as respond,              mock.patch.object(ai_client, "speak", return_value=b"mp3"):
+            self.client.post(f"/lessons/{self.lesson.id}/turn/", {"text": "ok", "phase": "practice", "phase_changed": "1"})
+        kwargs = respond.call_args.kwargs
+        self.assertTrue(kwargs["phase_changed"])
+        self.assertEqual((kwargs["phase_key"], kwargs["event"]), ("practice", "turn"))
+        self.assertEqual(Turn.objects.filter(role="tutor").count(), 1)  # one reply, not two
+
+    def test_the_tutor_is_told_to_transition_in_the_same_reply(self):
+        from ai import tutor as tutor_module
+
+        messages = tutor_module.build_messages(self.lesson, phase_key="practice", event="turn", phase_changed=True)
+        self.assertIn('"phase_just_changed": true', messages[1]["content"])
+        self.assertIn("move the class into the new phase in the same turn", messages[0]["content"])

@@ -119,3 +119,43 @@ class VocabularyPageTests(Base):
     def test_empty_states(self):
         html = self.client.get("/vocabulary/").content.decode()
         self.assertIn("Nothing to learn yet", html)
+
+
+class VocabDefineTests(Base):
+    def test_a_word_without_a_definition_can_be_defined_on_demand(self):
+        from unittest import mock
+
+        from ai import client as ai_client
+        from core import views
+
+        item = VocabItem.objects.create(learner=self.learner, term="rent")
+        html = self.client.get("/vocabulary/").content.decode()
+        self.assertIn("No definition yet", html)
+        self.assertIn(f'hx-post="/vocabulary/{item.id}/define/"', html)
+
+        definition = {"term": "rent", "definition_en": "the money you pay to live somewhere", "example": "The rent went up again.", "note_es": "'alquiler'."}
+        with mock.patch.object(views.ai_vocab, "define", return_value=definition) as define:
+            response = self.client.post(f"/vocabulary/{item.id}/define/", {"f": "target"}, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("the money you pay to live somewhere", response.content.decode())
+        define.assert_called_once()
+        item.refresh_from_db()
+        self.assertEqual(item.example_sentence, "The rent went up again.")
+
+        # A second click does not call the model again.
+        with mock.patch.object(views.ai_vocab, "define") as define:
+            self.client.post(f"/vocabulary/{item.id}/define/", {"f": "target"}, HTTP_HX_REQUEST="true")
+        define.assert_not_called()
+
+    def test_lookup_failure_keeps_the_card(self):
+        from unittest import mock
+
+        from ai import client as ai_client
+        from core import views
+
+        item = VocabItem.objects.create(learner=self.learner, term="rq")
+        with mock.patch.object(views.ai_vocab, "define", side_effect=ai_client.AIUnavailable("down")):
+            response = self.client.post(f"/vocabulary/{item.id}/define/", {"f": "target"}, HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Could not look it up", response.content.decode())
+        self.assertIn("<b>rq</b>", response.content.decode())

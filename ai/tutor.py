@@ -45,7 +45,7 @@ def phase_info(plan, phase_key, *, elapsed_in_phase_s=0):
     }
 
 
-def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, history=None):
+def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, history=None, phase_changed=False):
     learner = lesson.learner
     plan = lesson.plan or {}
     grammar_topic = lesson.grammar_topic
@@ -69,6 +69,9 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
         },
         "phase": phase_info(plan, phase_key, elapsed_in_phase_s=elapsed_in_phase_s),
         "event": event,
+        # True when the clock moved into this phase while she was speaking:
+        # bring her into it in this same reply, do not start a separate turn.
+        "phase_just_changed": bool(phase_changed),
         "grammar_topic": (
             {"title": grammar_topic.title, "summary_es": grammar_topic.summary_es, "examples": grammar_topic.examples}
             if grammar_topic
@@ -93,9 +96,9 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
     return messages
 
 
-def respond(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, history=None):
+def respond(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, history=None, phase_changed=False):
     """The tutor's next spoken line. Raises AIUnavailable if the model is down."""
-    messages = build_messages(lesson, phase_key=phase_key, event=event, elapsed_in_phase_s=elapsed_in_phase_s, history=history)
+    messages = build_messages(lesson, phase_key=phase_key, event=event, elapsed_in_phase_s=elapsed_in_phase_s, history=history, phase_changed=phase_changed)
     result = client.chat(messages, temperature=0.8, max_tokens=MAX_REPLY_TOKENS, purpose="tutor", lesson_id=lesson.id)
     text = result.content.strip()
     log.info("tutor lesson=%s phase=%s event=%s chars=%d", lesson.id, phase_key, event, len(text))

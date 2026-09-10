@@ -117,4 +117,4 @@ Modules are built strictly in the order of spec §13. Each module ends with some
 | 20 | onboarding | done |
 | 21 | level tracking | done |
 | 22 | progress | done |
-| 23 | polish | pending |
+| 23 | polish | done |

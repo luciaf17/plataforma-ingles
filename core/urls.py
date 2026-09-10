@@ -15,6 +15,7 @@ urlpatterns = [
     path("grammar/drill/", views.start_drill, name="start_drill"),
     path("vocabulary/", views.vocabulary_page, name="vocabulary"),
     path("vocabulary/<int:item_id>/status/", views.vocab_status, name="vocab_status"),
+    path("vocabulary/<int:item_id>/define/", views.vocab_define, name="vocab_define"),
     path("errors/", views.errors_page, name="errors"),
     path("errors/<int:error_id>/status/", views.error_status, name="error_status"),
     path("progress/", views.progress_page, name="progress"),

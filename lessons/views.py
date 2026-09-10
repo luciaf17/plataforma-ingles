@@ -865,12 +865,12 @@ def _read_phase(request):
         elapsed = max(0, int(float(request.POST.get("elapsed_in_phase") or 0)))
     except ValueError:
         elapsed = 0
-    return phase, elapsed
+    return phase, elapsed, request.POST.get("phase_changed") == "1"
 
 
-def _tutor_turn(lesson, phase, event, elapsed_in_phase):
+def _tutor_turn(lesson, phase, event, elapsed_in_phase, phase_changed=False):
     """Ask the tutor, store the turn, try to voice it. TTS failure is not fatal (spec 12)."""
-    text = tutor.respond(lesson, phase_key=phase, event=event, elapsed_in_phase_s=elapsed_in_phase)
+    text = tutor.respond(lesson, phase_key=phase, event=event, elapsed_in_phase_s=elapsed_in_phase, phase_changed=phase_changed)
     turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=text, phase=phase, sequence=next_sequence(lesson))
     audio_url = None
     try:
@@ -900,12 +900,12 @@ def tutor_prompt(request, lesson_id):
     lesson = own_lesson(request, lesson_id)
     if error := _in_progress_or_error(lesson):
         return error
-    phase, elapsed = _read_phase(request)
+    phase, elapsed, phase_changed = _read_phase(request)
     event = request.POST.get("event") or "phase_start"
     if event not in tutor.EVENTS:
         event = "phase_start"
     try:
-        turn, audio_url = _tutor_turn(lesson, phase, event, elapsed)
+        turn, audio_url = _tutor_turn(lesson, phase, event, elapsed, phase_changed=phase_changed)
     except client.AIUnavailable as exc:
         return JsonResponse({"error": f"The tutor is unavailable right now ({exc}). Try again in a moment."}, status=503)
     return JsonResponse({"tutor": _tutor_payload(turn, audio_url)})
@@ -918,7 +918,7 @@ def turn(request, lesson_id):
     lesson = own_lesson(request, lesson_id)
     if error := _in_progress_or_error(lesson):
         return error
-    phase, elapsed = _read_phase(request)
+    phase, elapsed, phase_changed = _read_phase(request)
     audio = request.FILES.get("audio")
     text = (request.POST.get("text") or "").strip()
     try:
@@ -950,7 +950,7 @@ def turn(request, lesson_id):
 
     learner_payload = {"id": learner_turn.id, "sequence": learner_turn.sequence, "text": text, "word_count": learner_turn.word_count}
     try:
-        tutor_turn, audio_url = _tutor_turn(lesson, phase, "turn", elapsed)
+        tutor_turn, audio_url = _tutor_turn(lesson, phase, "turn", elapsed, phase_changed=phase_changed)
     except client.AIUnavailable as exc:
         return JsonResponse({"learner": learner_payload, "error": f"The tutor is unavailable right now ({exc}). Try again."}, status=503)
     return JsonResponse({"learner": learner_payload, "tutor": _tutor_payload(tutor_turn, audio_url)})

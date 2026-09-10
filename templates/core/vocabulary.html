@@ -14,20 +14,7 @@
 {% if items %}
 <div class="vocab">
   {% for v in items %}
-    <div class="vcard">
-      <b>{{ v.term }}</b>
-      <p>{{ v.definition_en|default:"No definition yet. It'll get one the next time it comes up." }}</p>
-      {% if v.example_sentence %}<q>{{ v.example_sentence }}</q>{% endif %}
-      <div class="vfoot">
-        <span class="pill {% if v.status == 'target' %}amber{% elif v.status == 'emerging' %}green{% endif %}">{{ v.get_status_display }}{% if v.status == 'emerging' or v.status == 'acquired' %} · used {{ v.times_produced }}×{% elif v.track %} · {{ v.track.name }}{% endif %}</span>
-        <form method="post" action="{% url 'core:vocab_status' v.id %}">
-          {% csrf_token %}
-          <input type="hidden" name="next" value="/vocabulary/?f={{ filter }}">
-          {% if v.status != 'acquired' %}<button class="act" type="submit" name="action" value="acquired" title="I own this word">Got it</button>{% else %}<button class="act" type="submit" name="action" value="target" title="Practise it again">Practise again</button>{% endif %}
-          <button class="act" type="submit" name="action" value="remove" title="Remove from your file">Remove</button>
-        </form>
-      </div>
-    </div>
+    {% include "core/_vocab_card.html" %}
   {% endfor %}
 </div>
 {% else %}
@@ -42,5 +29,8 @@
   .vfoot form{display:flex;gap:10px}
   .vfoot .act{color:var(--ink-3);font-size:12px}
   .vfoot .act:hover{color:var(--ink)}
+  .vcard .undefined{color:var(--ink-3)}
+  .vcard .undefined .act{color:var(--amber);text-decoration:underline}
+  .vcard.htmx-request{opacity:.5}
 </style>
 {% endblock %}

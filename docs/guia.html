@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>tutor-en · Guía de uso</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  :root{
+    --bg:#ffffff; --panel:#f6f5f2; --line:#dcd8d0;
+    --ink:#1a1e27; --ink-2:#4a5160; --ink-3:#8a8f9a;
+    --amber:#a97613; --green:#3f7a51; --red:#b4503c;
+    --sans:"Public Sans",system-ui,sans-serif;
+    --serif:"Newsreader",Georgia,serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:10.5pt;line-height:1.55}
+  h1{font-family:var(--serif);font-size:30pt;font-weight:500;line-height:1.05;letter-spacing:-.01em}
+  h2{font-family:var(--serif);font-size:17pt;font-weight:500;margin:22pt 0 6pt;padding-bottom:4pt;border-bottom:1px solid var(--line);break-after:avoid}
+  h3{font-size:11pt;font-weight:600;margin:13pt 0 3pt;break-after:avoid}
+  p{margin-bottom:7pt}
+  ul,ol{margin:0 0 8pt 16pt}
+  li{margin-bottom:4pt}
+  b{font-weight:600}
+  code{font-family:ui-monospace,Consolas,monospace;font-size:9pt;background:var(--panel);padding:1px 4px;border-radius:3px}
+  .lead{font-family:var(--serif);font-size:13pt;color:var(--ink-2);line-height:1.45;margin:8pt 0 4pt}
+  .meta{color:var(--ink-3);font-size:9pt;margin-bottom:18pt}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:11pt 13pt;margin:9pt 0;break-inside:avoid}
+  .card h3{margin-top:0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:9pt}
+  .kv{display:grid;grid-template-columns:88pt 1fr;gap:3pt 10pt;font-size:10pt}
+  .kv b{color:var(--ink)}
+  .ex{font-family:var(--serif);font-size:10.5pt;color:var(--ink-2);padding:6pt 9pt;background:var(--panel);border-left:2px solid var(--line);border-radius:4px;margin:5pt 0}
+  .ex s{color:var(--red)} .ex em{color:var(--green);font-style:normal}
+  .note{border-left:3px solid var(--amber);padding-left:10pt;color:var(--ink-2);margin:9pt 0}
+  table{width:100%;border-collapse:collapse;font-size:9.5pt;margin:6pt 0}
+  th{text-align:left;font-weight:600;color:var(--ink-3);border-bottom:1px solid var(--line);padding:4pt 6pt}
+  td{padding:5pt 6pt;border-bottom:1px solid var(--line);vertical-align:top}
+  .page-break{break-before:page}
+  .steps{counter-reset:s;list-style:none;margin-left:0}
+  .steps li{counter-increment:s;position:relative;padding-left:22pt;margin-bottom:7pt}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:1pt;width:15pt;height:15pt;border-radius:50%;background:var(--amber);color:#fff;font-size:8.5pt;font-weight:600;display:flex;align-items:center;justify-content:center}
+  footer{margin-top:20pt;padding-top:8pt;border-top:1px solid var(--line);color:var(--ink-3);font-size:8.5pt}
+</style>
+</head>
+<body>
+
+<h1>tutor-en</h1>
+<p class="lead">Un tutor de inglés que lleva tu expediente. El chat es la interfaz; el expediente es el producto.</p>
+<p class="meta">Guía de uso · septiembre 2026 · <b>web-production-2b555.up.railway.app</b></p>
+
+<h2>Qué es y por qué es distinta</h2>
+<p>ChatGPT o Claude en modo voz son buenos tutores, pero no tienen memoria estructurada: te corrigen el mismo error cuarenta veces, nunca te hacen practicar justo lo que fallás, y no hay progresión.</p>
+<p>Acá cada cosa que decís o escribís deja evidencia. Esa evidencia se convierte en dos cosas: <b>errores</b> y <b>vocabulario</b>. Y esos dos determinan qué contiene la clase de mañana. Ese es todo el mecanismo:</p>
+<div class="card">
+  <p style="margin:0"><b>Das una clase</b> → el analizador lee la transcripción entera → <b>guarda tus errores con corrección y explicación en español</b> → el planificador arma la próxima clase alrededor de esos errores → <b>si los evitás, suben de casilla; si vuelven, bajan</b> → cuando un error sube cinco casillas, desaparece de tu expediente.</p>
+</div>
+<p>Por eso el número que importa en la app no es cuántas clases hiciste, sino <b>qué porcentaje de los errores apuntados lograste evitar</b>.</p>
+
+<h2>Cómo es una clase</h2>
+<p>Toda clase tiene cinco fases con tiempos fijos, para que se sienta como una clase de verdad y no como un chat:</p>
+<table>
+  <tr><th>Fase</th><th>Min</th><th>Qué pasa</th></tr>
+  <tr><td><b>Warm-up</b></td><td>3</td><td>Charla corta sobre tu día. No te corrige nada. Es para bajar la ansiedad.</td></tr>
+  <tr><td><b>Mini-lección</b></td><td>4</td><td>Te enseña el punto de gramática del día con ejemplos y te pide frases propias. Acá <b>sí</b> te corrige en el momento.</td></tr>
+  <tr><td><b>Práctica</b></td><td>9</td><td>La actividad principal. Acá casi no te corrige: usa <i>recast</i>, o sea repite bien lo que dijiste mal, sin señalarlo. Aparece en verde en la transcripción.</td></tr>
+  <tr><td><b>Drill</b></td><td>3</td><td>Preguntas rápidas y secas apuntadas a tus errores. Tono más directo.</td></tr>
+  <tr><td><b>Cierre</b></td><td>1</td><td>Dos cosas que salieron bien y una para mañana.</td></tr>
+</table>
+<p>Al terminar apretás <b>End lesson</b> y en 10 a 20 segundos tenés el reporte con los errores reales de esa clase.</p>
+
+<div class="note">
+  <p style="margin:0"><b>Importante:</b> la corrección fuerte no pasa en vivo, pasa en el reporte. Si el tutor te deja seguir hablando con un error, no es que no lo vio: lo está anotando para no cortarte.</p>
+</div>
+
+<h2 class="page-break">Las cuatro prácticas</h2>
+
+<div class="grid">
+  <div class="card">
+    <h3>Speaking</h3>
+    <p>Mantené apretado el botón grande mientras hablás y soltalo. También funciona con la barra espaciadora. Si el micrófono falla, abajo hay <b>Type instead</b> para escribir.</p>
+    <p>Tu voz se transcribe tal cual, con muletillas y errores incluidos: eso es lo que necesita el analizador.</p>
+  </div>
+  <div class="card">
+    <h3>Writing</h3>
+    <p>Una consigna con formato real: responder a tu tech lead por Slack, describir un PR, contestarle a un cliente. Escribís y apretás <b>Hand it in</b>.</p>
+    <p>Recibís tres cosas: tu texto corregido con las diferencias marcadas, la versión de cómo lo escribiría un nativo, y los errores explicados.</p>
+  </div>
+  <div class="card">
+    <h3>Reading</h3>
+    <p>Un texto de 300 a 500 palabras en formato real (issue de GitHub, post de ingeniería, mail de un manager). <b>Podés tocar cualquier palabra</b> para ver su definición, y esa palabra entra a tu vocabulario.</p>
+    <p>Después, seis preguntas y una respuesta escrita corta que te obliga a usar palabras del glosario.</p>
+  </div>
+  <div class="card">
+    <h3>Listening</h3>
+    <p>Un diálogo con dos voces distintas, o un monólogo, de 2 a 4 minutos. <b>No ves el texto.</b> Tenés dos escuchas como máximo y podés bajar la velocidad a 0.85×.</p>
+    <p>Al responder se revela la transcripción con la frase que contesta cada pregunta marcada.</p>
+  </div>
+</div>
+
+<p>En writing, reading y listening la mini-lección es una tarjeta: la explicación del punto de gramática con ejemplos y tres frases para completar. Se corrigen al toque y lo que fallás va a tu expediente.</p>
+
+<h2>Cada sección del menú</h2>
+
+<h3>Today</h3>
+<p>Tu punto de entrada. La clase de hoy ya está preparada cuando abrís la app, con los errores que ataca, el punto de gramática y la duración. Botones:</p>
+<ul>
+  <li><b>Start lesson</b> arranca la clase del día.</li>
+  <li><b>Change skill or topic</b> abre el selector: skill, track, duración, tema, y un campo libre <b>"What do you want to work on today?"</b> donde podés escribir en español lo que necesitás (por ejemplo "tengo una entrevista en una fintech el viernes") y la clase se arma alrededor de eso.</li>
+  <li><b>Surprise me</b> descarta el plan y genera otro de cero.</li>
+</ul>
+<p>Abajo: tu racha, tu nivel por skill, la barra del programa hacia B2, las clases sin terminar de días anteriores (con <b>Resume</b> o <b>Drop</b>) y las últimas clases con su resultado.</p>
+
+<h3>Grammar</h3>
+<p>Dos bloques. Arriba, <b>tu programa a B2</b>: los 34 puntos de gramática del A2 al B2 en orden, con su estado (sin empezar, introducido, practicando, dominado). Al tocar uno se abre la explicación contrastiva en español y podés apretar <b>Drill this now</b> para una práctica de 5 minutos solo con esa estructura.</p>
+<p>Abajo, <b>tus errores recurrentes</b> agrupados por patrón, con cuántas veces te pasaron y cuán cerca están de desaparecer.</p>
+
+<h3>Vocabulary</h3>
+<p>Tres estados: <b>Target</b> (palabras para aprender), <b>Emerging</b> (ya las usaste sola alguna vez) y <b>Acquired</b> (tres usos espontáneos). Podés marcar una como sabida, mandarla a practicar de nuevo o borrarla.</p>
+
+<h3>My errors</h3>
+<p>La tabla completa de tu expediente: lo que dijiste, la corrección, la explicación en español, de qué clase salió, cuántas veces pasó y las cinco casillas del sistema de repaso espaciado.</p>
+<div class="ex"><s>I work here since 2021</s> → <em>I've worked here since 2021</em></div>
+<p>Si un error no te parece útil, <b>Dismiss</b> lo saca de la rotación. <b>Practice the N due</b> arranca un drill con los que vencen hoy.</p>
+
+<h3>Progress</h3>
+<p>Las métricas que importan: clases del último mes, errores dominados y el número grande, <b>el porcentaje de errores apuntados que evitaste en los últimos 7 días</b>. Más el gráfico de errores evitados por clase, tu ritmo al hablar y cuánto del tiempo hablaste vos.</p>
+<p>Ahí también está el botón <b>Review my recent lessons</b>: la IA lee tus últimos reportes y tu expediente completo y te contesta en español qué se está moviendo, qué está trabado y qué hacer las próximas dos semanas.</p>
+<p>Y abajo, cuánto costó la app hasta hoy en llamadas a OpenAI.</p>
+
+<h2 class="page-break">El sistema de repaso</h2>
+<p>Cada error vive en una casilla del 0 al 5. Empieza en la 0 y vuelve a aparecer al día siguiente.</p>
+<table>
+  <tr><th>Casilla</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+  <tr><td>Vuelve en</td><td>1 día</td><td>2 días</td><td>4 días</td><td>8 días</td><td>16 días</td><td>dominado</td></tr>
+</table>
+<ul>
+  <li>Si la clase apuntaba a ese error y <b>no lo cometiste</b>, sube una casilla.</li>
+  <li>Si <b>volviste a cometerlo</b>, baja una casilla y suma una ocurrencia.</li>
+  <li>Un error con <b>3 ocurrencias</b> pasa a mandar sobre el programa: la mini-lección de mañana va a ser justamente ese punto.</li>
+</ul>
+
+<h2>Tu nivel</h2>
+<p>Se mide de tres maneras distintas, a propósito:</p>
+<ol class="steps">
+  <li><b>El placement inicial.</b> En el onboarding cargás tu resultado del <b>EF SET</b> (gratis, 50 minutos, en efset.org) para listening y reading. Para speaking y writing hay un checkpoint corto de 12 minutos.</li>
+  <li><b>La señal continua.</b> Cada clase deja una estimación de nivel. Tu nivel guardado <b>solo se mueve cuando tres clases seguidas de esa skill coinciden</b> en un nivel distinto. Un mal día no te baja y un buen día no te sube.</li>
+  <li><b>El checkpoint mensual.</b> Cada 28 días la app te prepara un examen de 30 minutos con las cuatro skills. No te corrige nada: te ubica. Devuelve, por cada skill, tu nivel, tres frases tuyas como evidencia, y qué te falta concretamente para B2. Esta es la medición oficial y sobreescribe a las otras dos.</li>
+</ol>
+
+<h2>Cuánto tarda llegar a B2</h2>
+<p>Con 20 minutos por día, 5 o 6 días por semana y speaking al menos 3 veces (el planificador ya lo fuerza), la estimación honesta es <b>entre 4 y 6 meses</b> para sostener B2 en speaking y writing. Con 30 minutos diarios, más cerca de 4.</p>
+<p>Lo que acelera no son las horas, es el ciclo: cada clase apunta a lo que fallaste, y un error evitado cinco veces desaparece. Después de B2, seguir a C1 son otras 150 a 200 horas; el nivel objetivo es un campo del expediente, así que se cambia sin rehacer nada.</p>
+
+<h2>Rutina sugerida</h2>
+<ol class="steps">
+  <li>Abrí <b>Today</b>. La clase ya está preparada (un proceso corre a las 3 de la mañana).</li>
+  <li>Si esta semana tenés algo puntual (una entrevista, una demo, un cliente difícil), escribilo en el campo libre del selector antes de empezar.</li>
+  <li>Dala completa, incluido el drill. Las fases cortas son las que más rinden.</li>
+  <li>Leé el reporte. No hace falta memorizar nada: los errores ya están agendados.</li>
+  <li>Una vez por semana, entrá a <b>Progress</b> y apretá <b>Review my recent lessons</b>.</li>
+  <li>Cuando te toque el checkpoint, hacelo sin apuro y con micrófono. Es la única medición que cuenta.</li>
+</ol>
+
+<h2>Si algo falla</h2>
+<div class="kv">
+  <b>El micrófono no anda</b><span>Tiene que ser HTTPS y el navegador propio (Chrome, Edge, Safari), no el navegador interno de WhatsApp o Instagram. Si no, usá <i>Type instead</i>.</span>
+  <b>No escuchás al tutor</b><span>Hacé un clic en cualquier parte de la página: los navegadores bloquean el audio hasta que interactuás.</span>
+  <b>Error 403 CSRF</b><span>Pasa si dejaste la pestaña abierta mucho tiempo. Recargá y volvé a entrar.</span>
+  <b>Se cayó la API</b><span>Nunca perdés una clase: tus turnos quedan guardados y siempre hay un botón para reintentar.</span>
+  <b>Una clase quedó a medias</b><span>Aparece en Today bajo <i>Unfinished</i>, con <i>Resume</i> para seguirla o <i>Finish</i> para cerrarla y analizarla.</span>
+</div>
+
+<footer>
+  tutor-en · Django + PostgreSQL + OpenAI, desplegado en Railway · Todo el código, la interfaz y los commits están en inglés a propósito: también es parte del entrenamiento.
+</footer>
+
+</body>
+</html>

@@ -25,8 +25,12 @@
 
   let elapsed = cfg.elapsed_seconds;
   let phaseIndex = phaseFor(elapsed);
-  let pendingPhase = null;
   let busy = false;
+  // The clock moves the phase, but the tutor only mentions it in its next
+  // reply, so a phase change never interrupts what it is saying.
+  let phaseChanged = false;
+  let phaseChangedAt = 0;
+  const NUDGE_AFTER_MS = 25000;
 
   function phaseFor(sec) {
     let idx = 0;
@@ -52,14 +56,20 @@
     elapsed += 1;
     renderTimer();
     const idx = phaseFor(elapsed);
-    if (idx > phaseIndex) pendingPhase = idx;
-    maybeAdvance();
+    if (idx > phaseIndex) {
+      phaseIndex = idx;
+      phaseChanged = true;
+      phaseChangedAt = Date.now();
+      renderPhase();
+    }
+    maybeNudge();
   }
-  function maybeAdvance() {
-    if (busy || pendingPhase === null) return;
-    phaseIndex = pendingPhase;
-    pendingPhase = null;
-    renderPhase();
+  // If she says nothing for a while after the phase changed, the tutor opens
+  // the new phase itself so the class does not stall.
+  function maybeNudge() {
+    if (!phaseChanged || busy || !el.audio.paused || recording()) return;
+    if (Date.now() - phaseChangedAt < NUDGE_AFTER_MS) return;
+    phaseChanged = false;
     askTutor("phase_start");
   }
 
@@ -80,16 +90,21 @@
   function setBusy(on) {
     busy = on;
     el.mic.disabled = on;
-    if (!on) maybeAdvance();
   }
 
+  const audioQueue = [];
   function playTutor(tutor) {
     appendLine("tutor", tutor.html);
-    if (tutor.audio_url) {
-      el.audio.src = tutor.audio_url;
-      el.audio.play().catch(() => setStatus("Tap the page once to enable audio, then hold to talk.", false));
-    }
+    if (!tutor.audio_url) return;
+    audioQueue.push(tutor.audio_url);
+    playNext();
   }
+  function playNext() {
+    if (!audioQueue.length || !el.audio.paused) return;
+    el.audio.src = audioQueue.shift();
+    el.audio.play().catch(() => setStatus("Tap the page once to enable audio, then hold to talk.", false));
+  }
+  el.audio.addEventListener("ended", playNext);
 
   // ---- server calls -----------------------------------------------------
   async function post(url, body) {
@@ -107,8 +122,10 @@
     body.append("phase", phases[phaseIndex].key);
     body.append("event", event);
     body.append("elapsed_in_phase", elapsedInPhase());
+    if (phaseChanged) body.append("phase_changed", "1");
     try {
       const data = await post(cfg.tutor_url, body);
+      phaseChanged = false;
       playTutor(data.tutor);
       setStatus("Hold to talk · release to send · or hold the space bar");
     } catch (err) {
@@ -127,9 +144,11 @@
     if (text) body.append("text", text);
     body.append("phase", phases[phaseIndex].key);
     body.append("elapsed_in_phase", elapsedInPhase());
+    if (phaseChanged) body.append("phase_changed", "1");
     if (durationMs) body.append("duration_ms", durationMs);
     try {
       const data = await post(cfg.turn_url, body);
+      phaseChanged = false;
       line.textContent = data.learner.text;
       line.classList.remove("pending");
       setStatus("Tutor is thinking…");
@@ -146,6 +165,7 @@
   // ---- recording --------------------------------------------------------
   let stream = null;
   let recorder = null;
+  function recording() { return !!recorder && recorder.state === "recording"; }
   let chunks = [];
   let recStart = 0;
 
@@ -159,7 +179,7 @@
     return candidates.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || "";
   }
   async function startRecording() {
-    if (busy || (recorder && recorder.state === "recording")) return;
+    if (busy || recording()) return;
     if (!navigator.mediaDevices || !window.MediaRecorder) {
       setStatus("This browser can't record audio. Use 'Type instead'.", true);
       return;
@@ -170,7 +190,9 @@
       setStatus("Microphone blocked. Allow it in the browser, or use 'Type instead'.", true);
       return;
     }
+    // She interrupted: drop whatever the tutor had queued.
     el.audio.pause();
+    audioQueue.length = 0;
     chunks = [];
     recorder = new MediaRecorder(stream, mimeType() ? { mimeType: mimeType() } : undefined);
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
@@ -222,4 +244,5 @@
   renderTimer();
   setInterval(tick, 1000);
   if (!cfg.has_turns) askTutor("lesson_start");
+  // The tutor keeps talking while she thinks; pressing the mic stops it.
 })();
