@@ -8,10 +8,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from ai import client, planner, tutor
+from ai import analyzer, client, planner, tutor
 from learners.models import Learner
 
-from .models import Lesson, Turn
+from . import postprocess
+from .models import ErrorItem, Lesson, LessonReport, Turn
 from .templatetags.lesson_extras import tutor_line
 
 log = logging.getLogger("lessons.views")
@@ -66,8 +67,10 @@ def speaking_today(request):
 @login_required
 def runner(request, lesson_id):
     lesson = own_lesson(request, lesson_id)
-    if lesson.status in (Lesson.Status.COMPLETED, Lesson.Status.ANALYZED):
-        return redirect("lessons:finished", lesson_id=lesson.id)
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    if lesson.status == Lesson.Status.COMPLETED:
+        return redirect("lessons:analyzing", lesson_id=lesson.id)
     if lesson.status == Lesson.Status.PLANNED:
         lesson.status = Lesson.Status.IN_PROGRESS
         lesson.started_at = timezone.now()
@@ -101,10 +104,87 @@ def runner(request, lesson_id):
 
 
 @login_required
-def finished(request, lesson_id):
-    """Placeholder until the report page lands (module 9)."""
+def analyzing(request, lesson_id):
+    """Spinner page shown while the analyzer runs (spec 4.4). It posts to `analyze` on load."""
     lesson = own_lesson(request, lesson_id)
-    return render(request, "lessons/finished.html", {"section": "speaking", "title": "Lesson finished", "lesson": lesson})
+    if lesson.status == Lesson.Status.ANALYZED:
+        return redirect("lessons:report", lesson_id=lesson.id)
+    if lesson.status != Lesson.Status.COMPLETED:
+        return redirect("lessons:runner", lesson_id=lesson.id)
+    return render(request, "lessons/analyzing.html", {"section": "speaking", "title": "Analyzing your lesson", "lesson": lesson})
+
+
+@login_required
+@require_POST
+def analyze(request, lesson_id):
+    """Run analyzer + postprocess synchronously, then send the browser to the report.
+
+    Called by HTMX from the analyzing page; answers with HX-Redirect on success
+    and an error partial (with a retry button) on failure. The lesson stays
+    `completed` until analysis succeeds, so nothing is lost on a timeout (spec 12).
+    """
+    lesson = own_lesson(request, lesson_id)
+    report_url = f"/lessons/{lesson.id}/report/"
+    if lesson.status == Lesson.Status.ANALYZED:
+        return _hx_redirect(request, report_url)
+    if lesson.status != Lesson.Status.COMPLETED:
+        return JsonResponse({"error": f"Lesson is {lesson.status}, not completed"}, status=409)
+    if not lesson.turns.filter(role=Turn.Role.LEARNER).exists():
+        # Nothing to analyze: close the lesson with an empty report.
+        LessonReport.objects.update_or_create(
+            lesson=lesson, defaults={"summary_es": "No hablaste en esta clase, así que no hay nada para analizar."}
+        )
+        lesson.status = Lesson.Status.ANALYZED
+        lesson.save(update_fields=["status"])
+        return _hx_redirect(request, report_url)
+    try:
+        result = analyzer.analyze(lesson)
+        postprocess.apply_analysis(lesson, result)
+    except client.AIUnavailable as exc:
+        log.error("analysis failed for lesson %s: %s", lesson.id, exc)
+        return render(request, "lessons/_analysis_error.html", {"lesson": lesson, "error": str(exc)}, status=503)
+    return _hx_redirect(request, report_url)
+
+
+def _hx_redirect(request, url):
+    if request.headers.get("HX-Request"):
+        response = JsonResponse({"redirect": url})
+        response["HX-Redirect"] = url
+        return response
+    return redirect(url)
+
+
+@login_required
+def report(request, lesson_id):
+    """The post-lesson report (spec 8.3): summary, strengths, new vs recycled errors, avoided, focus."""
+    lesson = own_lesson(request, lesson_id)
+    if lesson.status != Lesson.Status.ANALYZED:
+        return redirect("lessons:runner", lesson_id=lesson.id)
+    lesson_report = LessonReport.objects.filter(lesson=lesson).first()
+    if lesson_report is None:
+        return redirect("lessons:analyzing", lesson_id=lesson.id)
+    meta = (lesson_report.raw_analysis or {}).get("_meta", {})
+    ids = meta.get("new_error_ids", []) + meta.get("recycled_error_ids", []) + meta.get("avoided_error_ids", [])
+    by_id = {e.id: e for e in ErrorItem.objects.filter(learner=lesson.learner, id__in=ids)}
+
+    def pick(key):
+        return [by_id[i] for i in meta.get(key, []) if i in by_id]
+
+    learner_turns = lesson.turns.filter(role=Turn.Role.LEARNER)
+    context = {
+        "section": "speaking",
+        "title": lesson.title,
+        "lesson": lesson,
+        "report": lesson_report,
+        "new_errors": pick("new_error_ids"),
+        "recycled_errors": pick("recycled_error_ids"),
+        "avoided_errors": pick("avoided_error_ids"),
+        "cefr_signal": meta.get("cefr_signal") or {},
+        "targeted_count": len((lesson.plan or {}).get("targeted_error_ids", [])),
+        "learner_words": sum(t.word_count for t in learner_turns),
+        "learner_turns": learner_turns.count(),
+    }
+    return render(request, "lessons/report.html", context)
 
 
 # --------------------------------------------------------------------------- endpoints
@@ -225,4 +305,4 @@ def end(request, lesson_id):
         if lesson.started_at:
             lesson.duration_seconds = int((lesson.completed_at - lesson.started_at).total_seconds())
         lesson.save(update_fields=["status", "completed_at", "duration_seconds"])
-    return redirect("lessons:finished", lesson_id=lesson.id)
+    return redirect("lessons:analyzing", lesson_id=lesson.id)

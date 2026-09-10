@@ -1,0 +1,7 @@
+<h3>The analysis didn't go through</h3>
+<p class="hint">{{ error }}</p>
+<p class="hint" style="margin-top:8px">Your lesson is saved. Nothing is lost; try again in a moment.</p>
+<div style="margin-top:16px;display:flex;gap:10px">
+  <button class="btn primary" hx-post="{% url 'lessons:analyze' lesson.id %}" hx-target="#analysis-box" hx-swap="innerHTML" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>Try again</button>
+  <a class="btn" href="{% url 'core:today' %}">Back to Today</a>
+</div>

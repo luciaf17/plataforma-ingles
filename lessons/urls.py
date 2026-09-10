@@ -10,5 +10,7 @@ urlpatterns = [
     path("lessons/<int:lesson_id>/turn/", views.turn, name="turn"),
     path("lessons/<int:lesson_id>/tutor/", views.tutor_prompt, name="tutor"),
     path("lessons/<int:lesson_id>/end/", views.end, name="end"),
-    path("lessons/<int:lesson_id>/finished/", views.finished, name="finished"),
+    path("lessons/<int:lesson_id>/analyzing/", views.analyzing, name="analyzing"),
+    path("lessons/<int:lesson_id>/analyze/", views.analyze, name="analyze"),
+    path("lessons/<int:lesson_id>/report/", views.report, name="report"),
 ]

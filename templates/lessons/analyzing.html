@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="head">
+  <div><h1>Analyzing your lesson</h1><p>{{ lesson.title }} · reading the whole transcript and updating your file. This takes 10 to 20 seconds.</p></div>
+</div>
+<div class="card" id="analysis-box"
+     hx-post="{% url 'lessons:analyze' lesson.id %}"
+     hx-trigger="load"
+     hx-target="#analysis-box"
+     hx-swap="innerHTML"
+     hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+  <div class="spinner-wrap">
+    <div class="spinner" aria-hidden="true"></div>
+    <p class="hint">Finding the mistakes that matter, checking which targeted errors came back, and writing your teacher's note…</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+  .spinner-wrap{display:flex;flex-direction:column;align-items:center;gap:18px;padding:36px 0}
+  .spinner{width:44px;height:44px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--amber);animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spinner{animation-duration:2s}}
+</style>
+{% endblock %}

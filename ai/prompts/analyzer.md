@@ -85,6 +85,8 @@ Look for these first. They account for most of what a B1–B2 Spanish speaker ge
 
 ## Explanations
 
+All Spanish in the output (`explanation_es`, `summary_es`) is Rioplatense Spanish, addressed to the student with *vos*: "usás", "decís", "seguí trabajando", never "usas" or "sigue trabajando".
+
 `explanation_es` is in Spanish, two sentences at most, and contrastive: say what Spanish does that makes the student produce this, then what English does instead. The student is a developer; examples from work are fine. Do not lecture, do not apologise, do not use grammar jargon beyond what a B1 student knows.
 
 Good: "En español usás presente con 'desde' ('trabajo acá desde 2021'). En inglés, acción que empezó en el pasado y sigue = present perfect: 'I've been working here since 2021'."

@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load lesson_extras %}
+
+{% block content %}
+<div class="head">
+  <div>
+    <h1>{{ lesson.title }}</h1>
+    <p>{{ lesson.get_skill_display }} · {{ lesson.track.name }} track · {{ lesson.scheduled_for|date:"D j M" }} · {% widthratio lesson.duration_seconds|default:0 60 1 %} min{% if lesson.grammar_topic %} · Mini-lesson: {{ lesson.grammar_topic.title }}{% endif %}</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a class="btn primary" href="{% url 'lessons:speaking' %}">Practice these now</a>
+    <a class="btn" href="{% url 'core:today' %}">Back to Today</a>
+  </div>
+</div>
+
+<div class="grid g2">
+  <div class="card today">
+    <div class="kicker">Your teacher's note</div>
+    <p class="note">{{ report.summary_es }}</p>
+    {% if report.strengths %}
+      <div class="targets">
+        <p>What went well</p>
+        {% for s in report.strengths %}
+          <div class="target"><i class="dot green"></i><div><span class="right">{{ s }}</span></div></div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% if report.focus_next %}
+      <div class="targets" style="margin-bottom:0">
+        <p>Next lesson should target</p>
+        {% for f in report.focus_next %}
+          <div class="target"><i class="dot"></i><div><span class="right">{{ f }}</span></div></div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <h3>This lesson</h3>
+      <div class="grid g3 stats">
+        <div class="stat"><b class="red">{{ report.new_errors_count }}</b><span>new errors</span></div>
+        <div class="stat"><b class="amber">{{ report.recycled_errors_count }}</b><span>came back</span></div>
+        <div class="stat"><b class="green">{{ report.errors_avoided_count }}<small>/{{ targeted_count }}</small></b><span>targeted, avoided</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Speaking pace</h3>
+      <div class="skills">
+        <div class="skill"><span>Words / min</span><div class="bar"><i style="width:{% widthratio report.fluency_wpm|default:0 150 100 %}%"></i></div><span class="lvl">{% if report.fluency_wpm %}{{ report.fluency_wpm|floatformat:0 }}{% else %}—{% endif %}</span></div>
+        <div class="skill"><span>Fillers</span><div class="bar"><i class="a" style="width:{% widthratio report.filler_ratio|default:0 0.3 100 %}%"></i></div><span class="lvl">{% if report.filler_ratio is not None %}{% widthratio report.filler_ratio 1 100 %}%{% else %}—{% endif %}</span></div>
+        <div class="skill"><span>You spoke</span><div class="bar"><i style="width:{% widthratio learner_words 400 100 %}%"></i></div><span class="lvl">{{ learner_words }} w</span></div>
+      </div>
+      <p class="hint" style="margin-top:12px;font-size:13px">{{ learner_turns }} turns from you. Native conversational pace is 120–150 wpm.</p>
+      {% if cefr_signal.estimate %}
+        <p class="hint" style="margin-top:8px;font-size:13px"><span class="pill">Level signal · {{ cefr_signal.estimate }}</span> {{ cefr_signal.reasoning }}</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if new_errors %}
+<div class="card" style="margin-top:16px;padding:6px 10px">
+  <h3 style="padding:14px 10px 4px">New errors <small>{{ new_errors|length }} · added to your file</small></h3>
+  <table>
+    <thead><tr><th>What you said</th><th>Type</th><th>Confidence</th><th>Next review</th></tr></thead>
+    <tbody>
+      {% for e in new_errors %}
+        <tr>
+          <td class="q"><s>{{ e.learner_produced }}</s><div>{{ e.correction }}<span>{{ e.explanation }}</span></div></td>
+          <td>{{ e.get_category_display }} · {{ e.get_subcategory_display|lower }}</td>
+          <td><span class="pill {% if e.confidence == 'high' %}green{% elif e.confidence == 'low' %}red{% endif %}">{{ e.confidence }}</span></td>
+          <td>{{ e.next_review_at|date:"D j M" }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if recycled_errors %}
+<div class="card" style="margin-top:16px;padding:6px 10px">
+  <h3 style="padding:14px 10px 4px">Errors that came back <small>{{ recycled_errors|length }} · already in your file, one box down</small></h3>
+  <table>
+    <thead><tr><th>What you said</th><th>Type</th><th>Seen</th><th>Progress</th></tr></thead>
+    <tbody>
+      {% for e in recycled_errors %}
+        <tr>
+          <td class="q"><s>{{ e.learner_produced }}</s><div>{{ e.correction }}<span>{{ e.explanation }}</span></div></td>
+          <td>{{ e.get_category_display }} · {{ e.get_subcategory_display|lower }}</td>
+          <td>{{ e.occurrences }}×</td>
+          <td><span class="box">{% for b in "12345" %}<i class="{% if forloop.counter <= e.srs_box %}f{% endif %}"></i>{% endfor %}</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if avoided_errors %}
+<div class="card" style="margin-top:16px">
+  <h3>Avoided today <small>targeted and not made · one box up</small></h3>
+  <ul class="plan">
+    {% for e in avoided_errors %}
+      <li><span><s>{{ e.learner_produced }}</s> → {{ e.correction }}</span><span class="pill green">{% if e.status == 'mastered' %}mastered{% else %}box {{ e.srs_box }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if not new_errors and not recycled_errors and not avoided_errors %}
+<div class="empty" style="margin-top:16px">No errors were recorded for this lesson.</div>
+{% endif %}
+{% endblock %}
+
+{% block head %}
+<style>
+  .note{font-family:var(--serif);font-size:17px;line-height:1.5;margin-bottom:20px}
+  .target .dot.green{background:var(--green)}
+  .stats{gap:10px}
+  .stat b.red{color:var(--red)} .stat b.amber{color:var(--amber)} .stat b.green{color:var(--green)}
+  .stat b small{font-size:16px;color:var(--ink-3)}
+  .plan li s{color:var(--ink-3);text-decoration-color:var(--red)}
+  @media (max-width:860px){.stats{grid-template-columns:repeat(3,1fr)}}
+</style>
+{% endblock %}

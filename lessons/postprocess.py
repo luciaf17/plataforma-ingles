@@ -240,6 +240,12 @@ def apply_analysis(lesson, result, *, confidence=None):
                     "prompt_tokens": result.prompt_tokens,
                     "completion_tokens": result.completion_tokens,
                     "cefr_signal": result.cefr_signal,
+                    # Which file rows this lesson touched, so the report can show them.
+                    "new_error_ids": [e.id for e in summary.new_errors],
+                    "recycled_error_ids": [e.id for e in summary.recycled_errors],
+                    "avoided_error_ids": [e.id for e in summary.avoided_errors],
+                    "vocab_ids": [v.id for v in summary.vocab_touched],
+                    "grammar_topic_status": summary.grammar_topic_status,
                 },
             },
         },

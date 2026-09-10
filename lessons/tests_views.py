@@ -62,7 +62,7 @@ class SpeakingRunnerTests(TestCase):
         self.lesson.status = "completed"
         self.lesson.save()
         response = self.client.get(self.url)
-        self.assertRedirects(response, f"/lessons/{self.lesson.id}/finished/")
+        self.assertRedirects(response, f"/lessons/{self.lesson.id}/analyzing/")
 
     def test_current_phase_from_elapsed(self):
         self.assertEqual(views.current_phase_key(PLAN, 0), ("warm_up", 0))
@@ -195,11 +195,11 @@ class EndLessonTests(TestCase):
 
     def test_end_completes_and_records_duration(self):
         response = self.client.post(f"/lessons/{self.lesson.id}/end/")
-        self.assertRedirects(response, f"/lessons/{self.lesson.id}/finished/")
+        self.assertRedirects(response, f"/lessons/{self.lesson.id}/analyzing/")
         self.lesson.refresh_from_db()
         self.assertEqual(self.lesson.status, "completed")
         self.assertGreaterEqual(self.lesson.duration_seconds, 19 * 60)
-        self.assertEqual(self.client.get(f"/lessons/{self.lesson.id}/finished/").status_code, 200)
+        self.assertEqual(self.client.get(f"/lessons/{self.lesson.id}/analyzing/").status_code, 200)
 
 
 @override_settings(LESSON_SKILLS_ENABLED=["speaking"])
