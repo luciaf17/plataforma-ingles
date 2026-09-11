@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth.decorators import login_required
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.db.models import Max
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -380,30 +381,50 @@ def listening_runner(request, lesson):
 @login_required
 @require_POST
 def listening_audio(request, lesson_id):
-    """Voice every line of the script (two voices for dialogues), once. Called by HTMX on load."""
+    """Voice every line of the script (two voices for dialogues), once.
+
+    Asked for by the lesson page on load, and by Today ahead of time so the
+    wait is over before she presses play.
+    """
     lesson = own_lesson(request, lesson_id)
     if lesson.skill not in ("listening", "checkpoint"):
         return JsonResponse({"error": "Not a listening lesson"}, status=409)
-    task = listening_task(lesson)
     runner_url = f"/lessons/{lesson.id}/"
-    if audio_ready(task):
-        return _hx_redirect(request, runner_url)
+    with transaction.atomic():
+        # Today warms the audio up in the background while the runner may ask
+        # for it too. The row lock keeps the script from being voiced (and paid
+        # for) twice: the second request waits here and then finds it ready.
+        lesson = Lesson.objects.select_for_update().get(id=lesson.id)
+        task = listening_task(lesson)
+        if audio_ready(task):
+            return _hx_redirect(request, runner_url)
+        return _voice_script(request, lesson, task, runner_url)
+
+
+def _voice_script(request, lesson, task, runner_url):
     segments = {s["line_id"]: s for s in task.get("segments", []) if s.get("url")}
-    try:
-        for line in task.get("lines", []):
-            if line["id"] in segments:
-                continue
-            audio = client.speak(line["text"], voice=line["voice"], instructions=LISTENING_VOICE_INSTRUCTIONS, purpose="listening", lesson_id=lesson.id)
-            turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=f"{line['speaker']}: {line['text']}", phase="listening", sequence=next_sequence(lesson))
-            turn.audio_file.save(f"listening-{lesson.id}-{line['id']}.mp3", ContentFile(audio), save=True)
-            segments[line["id"]] = {"line_id": line["id"], "url": turn.audio_file.url}
-            # Save as we go so a failure halfway keeps what was voiced.
-            task["segments"] = [segments[l["id"]] for l in task["lines"] if l["id"] in segments]
-            lesson.plan = {**lesson.plan, "listening_task": task}
-            lesson.save(update_fields=["plan"])
-    except client.AIUnavailable as exc:
-        log.error("listening audio failed for lesson %s: %s", lesson.id, exc)
-        return render(request, "lessons/_audio_error.html", {"lesson": lesson, "error": str(exc)}, status=503)
+    lines = task.get("lines", [])
+    pending = [line for line in lines if line["id"] not in segments]
+    speeches, error = client.speak_many(
+        [(line["id"], line["text"], line["voice"]) for line in pending],
+        instructions=LISTENING_VOICE_INSTRUCTIONS, purpose="listening", lesson_id=lesson.id,
+    )
+    # Written in script order, after the calls, so the sequence numbers stay tidy.
+    for line in lines:
+        speech = speeches.get(line["id"])
+        if speech is None:
+            continue
+        turn = Turn.objects.create(lesson=lesson, role=Turn.Role.TUTOR, text=f"{line['speaker']}: {line['text']}", phase="listening", sequence=next_sequence(lesson))
+        turn.audio_file.save(f"listening-{lesson.id}-{line['id']}.mp3", ContentFile(speech.audio), save=True)
+        segments[line["id"]] = {"line_id": line["id"], "url": turn.audio_file.url}
+    if speeches:
+        # Keep whatever was voiced, even when some lines failed.
+        task["segments"] = [segments[l["id"]] for l in lines if l["id"] in segments]
+        lesson.plan = {**lesson.plan, "listening_task": task}
+        lesson.save(update_fields=["plan"])
+    if error is not None:
+        log.error("listening audio failed for lesson %s: %s", lesson.id, error)
+        return render(request, "lessons/_audio_error.html", {"lesson": lesson, "error": str(error)}, status=503)
     return _hx_redirect(request, runner_url)
 
 

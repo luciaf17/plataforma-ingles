@@ -60,10 +60,18 @@ class ListeningRunnerTests(TestCase):
         self.audio_url = f"/lessons/{self.lesson.id}/audio/"
         self.submit_url = f"/lessons/{self.lesson.id}/listen/"
 
-    def voice_it(self):
-        with mock.patch.object(ai_client, "speak", return_value=b"mp3") as speak:
+    def voice_it(self, failing_text=None):
+        """Fake the TTS. Keyed on the line, never on call order: the calls go
+        out in a thread pool and finish in whatever order the network decides."""
+
+        def fake(text, **kwargs):
+            if text == failing_text:
+                raise ai_client.AIUnavailable("tts down")
+            return ai_client.Speech(audio=b"mp3", characters=len(text), latency_ms=1)
+
+        with mock.patch.object(ai_client, "_speak", side_effect=fake) as spoken:
             response = self.client.post(self.audio_url, HTTP_HX_REQUEST="true")
-        return response, speak
+        return response, spoken
 
     def test_without_audio_the_runner_shows_the_preparing_page(self):
         html = self.client.get(self.url).content.decode()
@@ -72,30 +80,43 @@ class ListeningRunnerTests(TestCase):
         self.assertNotIn("What can we cut?", html)  # the script is never shown before answering
 
     def test_audio_generation_voices_each_line_with_its_speaker_voice(self):
-        response, speak = self.voice_it()
+        response, spoken = self.voice_it()
         self.assertEqual(response["HX-Redirect"], self.url)
-        self.assertEqual(speak.call_count, 3)
-        self.assertEqual([c.kwargs["voice"] for c in speak.call_args_list], ["coral", "onyx", "coral"])
-        self.assertEqual(speak.call_args_list[1].args[0], "The export feature is the bottleneck. We could push it back a sprint.")
+        self.assertEqual(spoken.call_count, 3)
+        voices = {call.args[0]: call.kwargs["voice"] for call in spoken.call_args_list}
+        self.assertEqual(voices, {
+            "So, the release is slipping. What can we cut?": "coral",
+            "The export feature is the bottleneck. We could push it back a sprint.": "onyx",
+            "Fine, but the dashboard is a must-have.": "coral",
+        })
         self.lesson.refresh_from_db()
         segments = self.lesson.plan["listening_task"]["segments"]
+        # Stored in script order however the calls came back.
         self.assertEqual([s["line_id"] for s in segments], [1, 2, 3])
         self.assertTrue(all(s["url"].endswith(".mp3") for s in segments))
         self.assertEqual(Turn.objects.filter(lesson=self.lesson, role="tutor").count(), 3)
 
         # Second call does nothing new.
-        _, speak = self.voice_it()
-        speak.assert_not_called()
+        _, spoken = self.voice_it()
+        spoken.assert_not_called()
 
     def test_audio_failure_keeps_voiced_lines_and_offers_retry(self):
-        with mock.patch.object(ai_client, "speak", side_effect=[b"mp3", ai_client.AIUnavailable("tts down")]):
-            response = self.client.post(self.audio_url, HTTP_HX_REQUEST="true")
+        response, _ = self.voice_it(failing_text="The export feature is the bottleneck. We could push it back a sprint.")
         self.assertEqual(response.status_code, 503)
         self.assertIn("Try again", response.content.decode())
         self.lesson.refresh_from_db()
-        self.assertEqual(len(self.lesson.plan["listening_task"]["segments"]), 1)
-        _, speak = self.voice_it()
-        self.assertEqual(speak.call_count, 2)
+        # The lines that did come back are kept, including the one after the
+        # failure: they were all in flight together, so none of them is lost.
+        self.assertEqual([s["line_id"] for s in self.lesson.plan["listening_task"]["segments"]], [1, 3])
+
+    def test_a_retry_only_voices_what_is_missing(self):
+        self.voice_it(failing_text="Fine, but the dashboard is a must-have.")
+        response, spoken = self.voice_it()
+        self.assertEqual(spoken.call_count, 1)
+        self.assertEqual(spoken.call_args.args[0], "Fine, but the dashboard is a must-have.")
+        self.assertEqual(response["HX-Redirect"], self.url)
+        self.lesson.refresh_from_db()
+        self.assertEqual([s["line_id"] for s in self.lesson.plan["listening_task"]["segments"]], [1, 2, 3])
 
     def test_runner_with_audio_hides_the_script_and_shows_the_player(self):
         self.voice_it()

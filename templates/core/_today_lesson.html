@@ -40,6 +40,18 @@
     {% endif %}
   </div>
 
+  {% if warm_audio_url %}
+  <script>
+    // Voice the dialogue now, so pressing play later is instant. Deliberately
+    // fetch() and not htmx: this endpoint answers with an HX-Redirect header
+    // that htmx would follow, and she is still reading Today.
+    fetch("{{ warm_audio_url }}", {
+      method: "POST",
+      headers: {"X-CSRFToken": "{{ csrf_token }}", "HX-Request": "true"},
+    }).catch(function () { /* the lesson page will voice it instead */ });
+  </script>
+  {% endif %}
+
   {% if lesson.status != 'in_progress' %}
   <details class="picker">
     <summary>{% if lesson.status == 'planned' %}Change skill or topic{% else %}Another lesson today{% endif %} ›</summary>

@@ -11,6 +11,7 @@ under the `ai` logger so cost stays visible.
 import json
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 
 from django.conf import settings
@@ -180,9 +181,15 @@ TUTOR_VOICE_INSTRUCTIONS = (
 )
 
 
-def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, response_format="mp3", model=None, purpose="", lesson_id=None):
-    """Text to speech. Returns the audio bytes."""
-    model = model or settings.OPENAI_TTS_MODEL
+@dataclass
+class Speech:
+    audio: bytes
+    characters: int
+    latency_ms: int
+
+
+def _speak(text, *, voice, instructions, response_format, model):
+    """One TTS call. Touches no database, so it is safe to run in a thread."""
     response, elapsed_ms = _call(
         "speak",
         get_client().audio.speech.create,
@@ -194,5 +201,50 @@ def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, r
     )
     audio = response.content
     log.info("speak model=%s voice=%s chars=%d bytes=%d latency=%dms", model, voice, len(text), len(audio), elapsed_ms)
-    _record("speak", model, purpose=purpose, lesson_id=lesson_id, characters=len(text), latency_ms=elapsed_ms)
-    return audio
+    return Speech(audio=audio, characters=len(text), latency_ms=elapsed_ms)
+
+
+def speak(text, *, voice=DEFAULT_VOICE, instructions=TUTOR_VOICE_INSTRUCTIONS, response_format="mp3", model=None, purpose="", lesson_id=None):
+    """Text to speech. Returns the audio bytes."""
+    model = model or settings.OPENAI_TTS_MODEL
+    speech = _speak(text, voice=voice, instructions=instructions, response_format=response_format, model=model)
+    _record("speak", model, purpose=purpose, lesson_id=lesson_id, characters=speech.characters, latency_ms=speech.latency_ms)
+    return speech.audio
+
+
+# A listening script is a dozen or more short lines. Sent one by one the
+# learner waits for the sum of the round trips; sent together, for the slowest.
+SPEAK_WORKERS = 6
+
+
+def speak_many(items, *, instructions=TUTOR_VOICE_INSTRUCTIONS, response_format="mp3", model=None, purpose="", lesson_id=None):
+    """Voice several lines at once.
+
+    `items` is a list of `(key, text, voice)`. Returns `(speeches, error)`:
+    a dict of key -> Speech for the lines that came back, and the first
+    failure or None. A partial result is deliberate — the caller keeps what
+    was voiced and can show the rest as unavailable (spec 12).
+    """
+    if not items:
+        return {}, None
+    model = model or settings.OPENAI_TTS_MODEL
+    speeches, error = {}, None
+    with ThreadPoolExecutor(max_workers=min(SPEAK_WORKERS, len(items))) as pool:
+        futures = {
+            pool.submit(
+                _speak, text, voice=voice, instructions=instructions,
+                response_format=response_format, model=model,
+            ): key
+            for key, text, voice in items
+        }
+        for future, key in futures.items():
+            try:
+                speeches[key] = future.result()
+            except AIUnavailable as exc:
+                log.error("speak failed for %r: %s", key, exc)
+                error = error or exc
+    # Bookkeeping on this thread, so the pool never opens a database connection.
+    for key, speech in speeches.items():
+        _record("speak", model, purpose=purpose, lesson_id=lesson_id, characters=speech.characters, latency_ms=speech.latency_ms)
+    log.info("speak_many voiced %d/%d lines purpose=%s", len(speeches), len(items), purpose)
+    return speeches, error

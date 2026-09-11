@@ -25,9 +25,9 @@ class TodayBase(TestCase):
         self.today = timezone.localdate()
         self.work = Track.objects.get(slug="work")
 
-    def lesson(self, days_ago=0, status="analyzed", plan=None, **kwargs):
+    def lesson(self, days_ago=0, status="analyzed", plan=None, skill="speaking", **kwargs):
         lesson = Lesson.objects.create(
-            learner=self.learner, track=self.work, skill="speaking", status=status,
+            learner=self.learner, track=self.work, skill=skill, status=status,
             scheduled_for=self.today - timedelta(days=days_ago), plan=plan if plan is not None else PLAN,
             duration_seconds=kwargs.pop("duration_seconds", 1200), **kwargs,
         )
@@ -241,3 +241,26 @@ class UnfinishedLessonTests(TodayBase):
         foreign = Lesson.objects.create(learner=other, track=self.work, skill="speaking", plan=PLAN, scheduled_for=self.today - timedelta(days=1))
         self.assertEqual(self.client.post(f"/today/drop/{foreign.id}/").status_code, 404)
         self.assertTrue(Lesson.objects.filter(id=foreign.id).exists())
+
+
+class WarmAudioTests(TodayBase):
+    """Today starts voicing a listening class before she opens it."""
+
+    def listening_lesson(self, status="planned", segments=None):
+        task = {"lines": [{"id": 1, "text": "Hi.", "voice": "coral", "speaker": "Maya"}], "segments": segments or []}
+        return self.lesson(days_ago=0, status=status, skill="listening", plan={**PLAN, "listening_task": task})
+
+    def test_a_listening_class_without_audio_is_warmed_up(self):
+        lesson = self.listening_lesson()
+        url = views.warm_audio_url(lesson)
+        self.assertEqual(url, f"/lessons/{lesson.id}/audio/")
+        self.assertContains(self.client.get("/"), url)
+
+    def test_nothing_to_warm_once_the_lines_are_voiced(self):
+        lesson = self.listening_lesson(segments=[{"line_id": 1, "url": "/media/a.mp3"}])
+        self.assertEqual(views.warm_audio_url(lesson), "")
+
+    def test_other_skills_and_finished_lessons_are_left_alone(self):
+        self.assertEqual(views.warm_audio_url(self.lesson(days_ago=0, status="planned")), "")
+        self.assertEqual(views.warm_audio_url(self.listening_lesson(status="analyzed")), "")
+        self.assertEqual(views.warm_audio_url(None), "")

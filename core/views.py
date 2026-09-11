@@ -15,6 +15,7 @@ from django.views.static import serve
 
 from ai import client, planner, review as ai_review, vocab as ai_vocab
 from learners.models import CEFR_ORDER, GrammarTopic, Learner, Topic, Track
+from lessons import views as lesson_views
 from lessons.models import ErrorItem, Lesson, ProgressReview, VocabItem
 
 from . import dashboard, grammar, progress
@@ -48,6 +49,7 @@ def lesson_card_context(request, learner, lesson, error=None):
         "lesson": lesson,
         "targeted": targeted,
         "prepare_error": error,
+        "warm_audio_url": warm_audio_url(lesson),
         "picker": {
             "skills": [s for s in planner.SKILLS if s in settings.LESSON_SKILLS_ENABLED],
             "tracks": Track.objects.filter(slug__in=planner.TRACKS).order_by("slug"),
@@ -55,6 +57,22 @@ def lesson_card_context(request, learner, lesson, error=None):
             "topics": Topic.objects.filter(is_active=True).select_related("track").order_by("track__slug", "title"),
         },
     }
+
+
+def warm_audio_url(lesson):
+    """Where Today should quietly start voicing a listening class.
+
+    The lines are voiced by the text-to-speech API, which takes a few seconds.
+    Doing it while she reads the card means pressing play is instant. Empty
+    string when there is nothing to warm up.
+    """
+    if lesson is None or lesson.skill != "listening":
+        return ""
+    if lesson.status not in (Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS):
+        return ""
+    if lesson_views.audio_ready((lesson.plan or {}).get("listening_task") or {}):
+        return ""
+    return reverse("lessons:listening_audio", args=[lesson.id])
 
 
 def needs_onboarding(learner):
