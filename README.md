@@ -75,6 +75,21 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## Reading from real articles
+
+Reading lessons quote a real piece published in the last few days instead of a
+text the model invents. `python manage.py fetch_articles` reads the feeds in
+`articles/sources.py` (Hacker News, dev.to and engineering blogs), extracts the
+body with trafilatura, and keeps what is long enough, in English, and actually
+an article. The cron runs it before planning the day's lesson.
+
+The planner receives an excerpt and builds the glossary and comprehension
+questions on it; the text stored in the lesson is the article's own wording,
+never the model's paraphrase, and the screen links to the original. An article
+is served to a learner once. With an empty pool (every feed down, say) the
+planner writes its own text as before, so a reading lesson never fails for
+want of an article.
+
 ## Install as an app
 
 The site is a progressive web app: `/manifest.webmanifest` and a service

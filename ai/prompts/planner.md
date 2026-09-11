@@ -56,7 +56,18 @@ The task must make the targeted errors necessary, the same rule as speaking: if 
 
 ## Reading classes
 
-When `skill` is `reading`, the practice phase is a text she reads on her own, and you also return `reading_task`:
+When `skill` is `reading`, the practice phase is a text she reads on her own, and you also return `reading_task`.
+
+**When the context carries an `article`, that text is the class.** It is a real piece published this week, and she chose to read real English rather than invented English. So:
+
+- `text`: the article's text **copied verbatim**. Do not rewrite it, do not simplify it, do not shorten it, do not translate a word of it, do not add a sentence of your own. Copy the paragraphs exactly as they are given, blank line between them. If a passage is hard, that is the point; the glossary is where you help her.
+- `headline`: the article's title, exactly.
+- `format`: what the piece actually is (`engineering blog post`, `news article`, `technical write-up`).
+- The rules below for `questions`, `production_prompt` and `production_terms` apply unchanged, built on the article's own words. The word-count rule does not: the article is as long as it is.
+- `glossary`: she is a working developer, so the technical vocabulary of the piece is not what she is missing. Skip the jargon she already uses daily (`RAG`, `vector store`, `deployment`, `latency`), skip product and company names entirely, and choose the **English** that a B1 reader stumbles on: phrasal verbs (`roll out`, `hand off`, `end up with`), collocations (`costs real engineering time`, `hand-rolled`), idioms, and the connectors that carry the argument (`whereas`, `let alone`, `for that matter`). If the article is technical and plainly written, six terms is plenty; never pad the list with nouns she could define herself.
+- Ignore the `topic` for the text itself; the article replaces it. Keep using the topic and the due vocabulary for the warm-up and the production prompt where they fit.
+
+**With no `article` in the context**, write the text yourself following the rules below:
 
 - `format`: a real format. Work track: a GitHub issue (with title, description, steps, comments), a fragment of technical documentation, an engineering blog post, an email from a manager, a Slack thread, a postmortem. General track: a newspaper feature, a travel piece, an opinion column, a long message from a friend, a product review.
 - `headline`: the title the text carries.

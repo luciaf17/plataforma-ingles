@@ -12,8 +12,11 @@
 <div class="lesson reading">
   <div class="card stage">
     {% include "lessons/_mini_lesson.html" %}
-    <div class="kicker">{{ task.format|default:"Text" }}</div>
+    <div class="kicker">{{ task.format|default:"Text" }}{% if task.source_name %} · {{ task.source_name }}{% endif %}</div>
     <h2 class="headline">{{ task.headline }}</h2>
+    {% if task.source_url %}
+      <p class="source">Real article from {{ task.source_name }}. <a href="{{ task.source_url }}" target="_blank" rel="noopener noreferrer">Read the original ↗</a></p>
+    {% endif %}
     <div class="text" id="reading-text">
       {% for p in paragraphs %}<p>{{ p|linebreaksbr }}</p>{% endfor %}
     </div>
@@ -80,6 +83,8 @@
 <style>
   .reading .stage{min-height:0}
   .reading .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
+  .source{color:var(--ink-3);font-size:13px;margin-bottom:14px}
+  .source a{color:var(--blue)}
   .headline{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.2;margin-bottom:14px}
   .text{font-family:var(--serif);font-size:17px;line-height:1.65}
   .text p{margin-bottom:14px}

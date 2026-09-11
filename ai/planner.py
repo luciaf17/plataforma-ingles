@@ -20,6 +20,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from articles import models as articles
 from learners.models import GrammarTopic, LearnerGrammarTopic, Topic, Track
 from lessons.models import ErrorItem, Lesson, VocabItem
 
@@ -176,6 +177,7 @@ class Selection:
     due_vocab: list = field(default_factory=list)
     recent_topics: list = field(default_factory=list)
     request: str = ""
+    article: object = None
 
 
 def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEFAULT_DURATION, request="", rng=random):
@@ -199,6 +201,9 @@ def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEF
         due_vocab=list(VocabItem.objects.due_for(learner, on=on)[:MAX_DUE_VOCAB]),
         recent_topics=recent_topic_titles(learner),
         request=(request or "").strip()[:500],
+        # Reading lessons quote a real article when the pool has one; with an
+        # empty pool the planner writes its own text as before.
+        article=articles.pick_for(learner, rng=rng) if skill == "reading" else None,
     )
 
 
@@ -470,9 +475,21 @@ def normalise_listening_task(task):
 LISTENING_MIN_WORDS = {10: 200, 15: 260, 20: 320, 30: 420}
 
 
-def normalise_reading_task(task):
-    """Questions get ids, options are trimmed to four, answer_index is kept in range."""
+def normalise_reading_task(task, article=None, duration=None):
+    """Questions get ids, options are trimmed to four, answer_index is kept in range.
+
+    With a real article, the credit and the link travel with the task so the
+    screen can show them and the learner can open the original.
+    """
     task = dict(task or {})
+    if article is not None:
+        # The prompt asks the model to copy the article, but only this is
+        # guaranteed to be the published wording, so it wins.
+        task["text"] = article.excerpt(reading_words_expected(duration or 20))
+        task["headline"] = article.title
+        task["source_name"] = article.source_name
+        task["source_url"] = article.url
+        task["article_id"] = article.id
     questions = []
     for index, q in enumerate(task.get("questions", [])):
         options = [o.strip() for o in q.get("options", []) if o and o.strip()][:4]
@@ -541,6 +558,16 @@ def build_context(learner, selection):
         "due_vocab": [{"term": v.term, "definition_en": v.definition_en, "status": v.status} for v in selection.due_vocab],
         "recent_topics": selection.recent_topics,
         "learner_request": selection.request or None,
+        "article": (
+            {
+                "title": selection.article.title,
+                "source": selection.article.source_name,
+                "url": selection.article.url,
+                "text": selection.article.excerpt(reading_words_expected(selection.duration)),
+            }
+            if selection.article
+            else None
+        ),
         "phases": [{"key": key, "minutes": minutes} for key, minutes in phase_minutes(selection.skill, selection.duration).items()],
     }
 
@@ -575,7 +602,11 @@ def normalise_plan(data, learner, selection):
         "due_vocab_ids": [v.id for v in selection.due_vocab],
         "if_stuck_hints": data.get("if_stuck_hints", []),
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
-        "reading_task": normalise_reading_task(data.get("reading_task")) if selection.skill == "reading" else None,
+        "reading_task": (
+            normalise_reading_task(data.get("reading_task"), article=selection.article, duration=selection.duration)
+            if selection.skill == "reading"
+            else None
+        ),
         "listening_task": normalise_listening_task(data.get("listening_task")) if selection.skill == "listening" else None,
         "mini_lesson_card": normalise_mini_lesson_card(data.get("mini_lesson_card")) if selection.skill != "speaking" and selection.grammar_topic else None,
         "learner_request": selection.request or "",
@@ -599,7 +630,7 @@ def generate_plan(learner, selection):
     ]
     chat = client.chat_json(messages, schema, schema_name=f"{selection.skill}_plan", temperature=0.7, purpose="planner")
     plan = normalise_plan(chat.data, learner, selection)
-    if selection.skill == "reading":
+    if selection.skill == "reading" and selection.article is None:
         expected = reading_words_expected(selection.duration)
         got = (plan.get("reading_task") or {}).get("word_count", 0)
         if got < expected * 0.8:
@@ -858,4 +889,6 @@ def prepare_next_lesson(learner, *, on=None, skill=None, track=None, topic=None,
         plan=plan,
         scheduled_for=on,
     )
+    if selection.article is not None:
+        articles.mark_used(selection.article, learner, lesson)
     return lesson, True

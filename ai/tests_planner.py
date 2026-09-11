@@ -5,7 +5,10 @@ from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
+from articles import models as articles_models
+from articles.models import Article, ArticleUse
 from learners.models import GrammarTopic, Learner, LearnerGrammarTopic, Topic, Track
 from lessons.models import ErrorItem, Lesson, VocabItem
 
@@ -253,3 +256,74 @@ class PrepareNextLessonTests(PlannerBase):
         Topic.objects.all().delete()
         with self.assertRaises(planner.NothingToPlan):
             self.prepare()
+
+
+READING_TASK = {
+    "format": "engineering blog post",
+    "headline": "Whatever the model wrote",
+    "text": "A paraphrase the model produced instead of copying.",
+    "glossary": [{"term": "roll out", "definition_en": "release gradually", "example": "We rolled it out."}],
+    "questions": [
+        {"type": "gist", "question": "What is it about?", "options": ["a", "b"], "answer_index": 0, "explanation": "x"}
+    ],
+    "production_prompt": "Summarise it for a colleague.",
+    "production_terms": ["roll out"],
+    "production_words_min": 60,
+    "production_words_max": 120,
+}
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["reading"])
+class ReadingUsesRealArticlesTests(PlannerBase):
+    """A reading lesson quotes an article from the pool when there is one (spec extension)."""
+
+    def setUp(self):
+        super().setUp()
+        self.body = "\n\n".join(["The team moved the queue to a new cluster and watched the latency drop." * 4] * 6)
+        self.article = Article.objects.create(
+            source="netflix", source_name="Netflix Tech Blog", url="https://netflixtechblog.com/queues",
+            title="A Tale of Two Autoscalers", text=self.body, word_count=len(self.body.split()),
+            published_at=timezone.now(),
+        )
+
+    def prepare(self):
+        chat = SimpleNamespace(
+            data=fake_plan(reading_task=READING_TASK, mini_lesson_card=None),
+            content="{}", model="gpt-4o-test", prompt_tokens=10, completion_tokens=20,
+        )
+        with mock.patch.object(planner.client, "chat_json", return_value=chat) as chat_json:
+            lesson, _ = planner.prepare_next_lesson(self.learner, on=TODAY, rng=random.Random(1))
+        return lesson, chat_json
+
+    def test_the_article_reaches_the_model_and_the_plan(self):
+        lesson, chat_json = self.prepare()
+        context = chat_json.call_args.args[0][1]["content"]
+        self.assertIn("A Tale of Two Autoscalers", context)
+        self.assertIn("netflixtechblog.com/queues", context)
+
+        task = lesson.plan["reading_task"]
+        # The stored text is the article's own wording, not the model's paraphrase.
+        self.assertNotIn("paraphrase", task["text"])
+        self.assertIn("moved the queue to a new cluster", task["text"])
+        self.assertEqual(task["headline"], "A Tale of Two Autoscalers")
+        self.assertEqual(task["source_name"], "Netflix Tech Blog")
+        self.assertEqual(task["source_url"], "https://netflixtechblog.com/queues")
+        self.assertEqual(task["article_id"], self.article.id)
+
+    def test_the_article_is_not_served_twice(self):
+        lesson, _ = self.prepare()
+        self.assertTrue(ArticleUse.objects.filter(article=self.article, learner=self.learner, lesson=lesson).exists())
+        self.assertIsNone(articles_models.pick_for(self.learner))
+
+    def test_an_empty_pool_falls_back_to_an_invented_text(self):
+        Article.objects.all().delete()
+        lesson, _ = self.prepare()
+        task = lesson.plan["reading_task"]
+        self.assertIn("paraphrase", task["text"])
+        self.assertNotIn("source_url", task)
+
+    def test_a_quoted_article_is_never_regenerated_for_length(self):
+        """The retry exists to stop the model writing a 150-word text; a real
+        article is as long as it is, so asking again would only invite invention."""
+        _, chat_json = self.prepare()
+        self.assertEqual(chat_json.call_count, 1)
