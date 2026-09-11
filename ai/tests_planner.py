@@ -168,8 +168,11 @@ class GrammarTopicSelectionTests(PlannerBase):
 
 
 class PhaseMinutesTests(TestCase):
-    def test_speaking_twenty_minutes_matches_the_spec_table(self):
-        self.assertEqual(planner.phase_minutes("speaking", 20), {"warm_up": 3, "mini_lesson": 4, "practice": 9, "drill": 3, "wrap_up": 1})
+    def test_speaking_twenty_minutes(self):
+        """Deviates from the spec 4.1b table (3/4/9/3/1) on purpose: the wrap-up
+        went from 1 minute to 3 to hold the two fluency retells, paid for out of
+        practice and drill."""
+        self.assertEqual(planner.phase_minutes("speaking", 20), {"warm_up": 3, "mini_lesson": 4, "practice": 8, "drill": 2, "wrap_up": 3})
 
     def test_other_durations_still_add_up(self):
         for duration in (10, 15, 25, 30):
@@ -195,7 +198,7 @@ class PrepareNextLessonTests(PlannerBase):
         self.assertEqual(lesson.track, self.work)
         self.assertEqual(lesson.grammar_topic.order, 1)
         self.assertEqual([p["key"] for p in lesson.plan["phases"]], planner.PHASES)
-        self.assertEqual([p["minutes"] for p in lesson.plan["phases"]], [3, 4, 9, 3, 1])
+        self.assertEqual([p["minutes"] for p in lesson.plan["phases"]], [3, 4, 8, 2, 3])
         self.assertEqual(lesson.plan["title"], "Walking an interviewer through your ERP")
         self.assertEqual(lesson.plan["_meta"]["prompt_tokens"], 10)
         self.assertEqual(lesson.title, "Walking an interviewer through your ERP")
@@ -327,3 +330,38 @@ class ReadingUsesRealArticlesTests(PlannerBase):
         article is as long as it is, so asking again would only invite invention."""
         _, chat_json = self.prepare()
         self.assertEqual(chat_json.call_count, 1)
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["speaking"])
+class FluencyRetellTests(PlannerBase):
+    """The 4/3/2 round at the end of a speaking class: same content, less time."""
+
+    def prepare(self, retell=...):
+        data = fake_plan()
+        if retell is not ...:
+            data["fluency_retell"] = retell
+        chat = SimpleNamespace(data=data, content="{}", model="gpt-4o-test", prompt_tokens=10, completion_tokens=20)
+        with mock.patch.object(planner.client, "chat_json", return_value=chat):
+            lesson, _ = planner.prepare_next_lesson(self.learner, on=TODAY, rng=random.Random(1))
+        return lesson
+
+    def test_the_rounds_are_ours_not_the_models(self):
+        lesson = self.prepare({"prompt": "Tell me again how you chose the queue.", "rounds": [300, 299]})
+        self.assertEqual(lesson.plan["fluency_retell"], {
+            "prompt": "Tell me again how you chose the queue.",
+            "rounds": planner.RETELL_ROUNDS,
+        })
+        self.assertEqual(planner.RETELL_ROUNDS, [60, 40])
+
+    def test_each_round_is_shorter_than_the_last(self):
+        self.assertTrue(all(a > b for a, b in zip(planner.RETELL_ROUNDS, planner.RETELL_ROUNDS[1:])))
+
+    def test_no_prompt_means_no_round(self):
+        self.assertIsNone(self.prepare({"prompt": "  ", "rounds": []}).plan["fluency_retell"])
+        self.assertIsNone(self.prepare(None).plan["fluency_retell"])
+
+    def test_the_wrap_up_has_room_for_it(self):
+        lesson = self.prepare({"prompt": "Tell it again.", "rounds": []})
+        wrap_up = lesson.plan["phases"][-1]
+        self.assertEqual(wrap_up["key"], "wrap_up")
+        self.assertGreaterEqual(wrap_up["minutes"] * 60, sum(planner.RETELL_ROUNDS))

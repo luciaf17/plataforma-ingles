@@ -1,5 +1,5 @@
 <div class="vcard" id="vocab-{{ v.id }}">
-  <b>{{ v.term }}</b>
+  <b>{{ v.term }}</b>{% if v.is_chunk %} <span class="chunk" title="A phrase you retrieve whole, not a word you assemble">chunk</span>{% endif %}
   {% if v.definition_en %}
     <p>{{ v.definition_en }}</p>
   {% else %}

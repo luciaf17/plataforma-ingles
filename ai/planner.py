@@ -41,7 +41,7 @@ ERROR_FORCES_TOPIC_AT = 3  # occurrences that make an error override the syllabu
 
 PHASES = ["warm_up", "mini_lesson", "practice", "drill", "wrap_up"]
 # Minutes per phase for a 20-minute speaking class (spec 4.1b). Scaled for other durations.
-SPEAKING_PHASE_MINUTES = {"warm_up": 3, "mini_lesson": 4, "practice": 9, "drill": 3, "wrap_up": 1}
+SPEAKING_PHASE_MINUTES = {"warm_up": 3, "mini_lesson": 4, "practice": 8, "drill": 2, "wrap_up": 3}
 # Text skills: warm-up shrinks to a minute, the rest goes to practice.
 TEXT_PHASE_MINUTES = {"warm_up": 1, "mini_lesson": 4, "practice": 11, "drill": 3, "wrap_up": 1}
 
@@ -252,8 +252,17 @@ SPEAKING_PLAN_SCHEMA = {
             },
         },
         "if_stuck_hints": {"type": "array", "items": {"type": "string"}},
+        "fluency_retell": {
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string"},
+                "rounds": {"type": "array", "items": {"type": "integer"}},
+            },
+            "required": ["prompt", "rounds"],
+            "additionalProperties": False,
+        },
     },
-    "required": ["title", "summary", "tutor_role", "phases", "targeted_errors", "vocabulary", "if_stuck_hints"],
+    "required": ["title", "summary", "tutor_role", "phases", "targeted_errors", "vocabulary", "if_stuck_hints", "fluency_retell"],
     "additionalProperties": False,
 }
 
@@ -512,6 +521,20 @@ def normalise_reading_task(task, article=None, duration=None):
     return task
 
 
+# Seconds for each round of the fluency retell (4/3/2, scaled to a 20-minute
+# class). The drop is the point: the second round leaves no time to translate.
+RETELL_ROUNDS = [60, 40]
+
+
+def normalise_retell(task):
+    """The model chooses what she retells; the clock is ours."""
+    task = dict(task or {})
+    prompt = (task.get("prompt") or "").strip()
+    if not prompt:
+        return None
+    return {"prompt": prompt, "rounds": RETELL_ROUNDS}
+
+
 # Reading texts below this share of the expected length get one regeneration.
 READING_MIN_WORDS = {10: 180, 15: 240, 20: 300, 30: 400}
 
@@ -601,6 +624,7 @@ def normalise_plan(data, learner, selection):
         "vocabulary": data.get("vocabulary", []),
         "due_vocab_ids": [v.id for v in selection.due_vocab],
         "if_stuck_hints": data.get("if_stuck_hints", []),
+        "fluency_retell": normalise_retell(data.get("fluency_retell")) if selection.skill == "speaking" else None,
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
         "reading_task": (
             normalise_reading_task(data.get("reading_task"), article=selection.article, duration=selection.duration)

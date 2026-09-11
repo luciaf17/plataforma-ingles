@@ -105,8 +105,8 @@ Avoiding a targeted error is the main progress signal of this platform. Be stric
 
 ## Vocabulary
 
-- `new_vocabulary_produced`: words or phrases at or above the student's level that they used spontaneously and correctly. Lowercase, base form, no duplicates. Empty list if nothing stands out.
-- `vocabulary_gaps`: words they reached for and did not have (circumlocutions, Spanish words, "the thing that..."). Give the English word they needed.
+- `new_vocabulary_produced`: what the student used spontaneously and correctly, at or above their level. **Prefer the chunk over the bare word**: `push back on a nitpick`, not `nitpick`; `run into a problem`, not `problem`. A speaker retrieves chunks whole, so a chunk is what is worth recording. Lowercase, no duplicates, the verb in base form when the chunk starts with one (`roll out a feature`). Empty list if nothing stands out.
+- `vocabulary_gaps`: what they reached for and did not have (circumlocutions, Spanish words, "the thing that..."). Give the **whole English phrase they needed**, not the dictionary word: if they said "which the mean of trade-off", the gap is `what does X mean?`, not `meaning`; if they said "I go in motorcycle", it is `go by motorbike`. This student translates from Spanish, so the phrase is the fix and the word is not.
 
 ## Summary, strengths, focus
 

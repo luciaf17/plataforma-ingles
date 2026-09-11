@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import clear_url_caches
+from learners.models import GrammarTopic
 from unittest import mock
 import importlib
 import io
@@ -27,7 +28,7 @@ class BootstrapCommandTests(TestCase):
 
         again = self.run_bootstrap(DJANGO_SUPERUSER_USERNAME="lu", DJANGO_SUPERUSER_PASSWORD="other")
         self.assertIn("exists", again)
-        self.assertIn("Seed present: 34", again)
+        self.assertIn(f"Seed present: {GrammarTopic.objects.count()}", again)
         self.assertEqual(get_user_model().objects.count(), 1)
         self.assertTrue(get_user_model().objects.get().check_password("pw"))
 

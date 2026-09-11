@@ -177,6 +177,15 @@ class VocabItem(models.Model):
     def __str__(self):
         return self.term
 
+    @property
+    def is_chunk(self):
+        """A multi-word expression: a collocation, a phrasal verb, a fixed phrase.
+
+        These are what a speaker retrieves whole under pressure, so the file
+        counts them apart from single words.
+        """
+        return " " in self.term.strip()
+
     def save(self, *args, **kwargs):
         self.term = self.term.strip().lower()
         super().save(*args, **kwargs)

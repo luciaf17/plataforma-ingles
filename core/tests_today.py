@@ -77,7 +77,9 @@ class DashboardNumbersTests(TodayBase):
 
         LearnerGrammarTopic.objects.create(learner=self.learner, topic=GrammarTopic.objects.get(order=1), status="mastered")
         program = dashboard.program_progress(self.learner)
-        self.assertEqual((program["mastered"], program["total"], program["pct"]), (1, 34, 3))
+        # Derived, not hardcoded: the syllabus grows when a topic is added.
+        total = GrammarTopic.objects.count()
+        self.assertEqual((program["mastered"], program["total"], program["pct"]), (1, total, round(100 / total)))
 
     def test_recent_lessons_rows(self):
         lesson = self.lesson(days_ago=1, plan={**PLAN, "targeted_error_ids": [1, 2, 3]})

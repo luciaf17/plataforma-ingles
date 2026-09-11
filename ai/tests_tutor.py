@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest import mock
 
@@ -88,3 +89,34 @@ class BuildMessagesTests(TestCase):
             text = tutor.respond(self.lesson, phase_key="practice", event="turn")
         self.assertEqual(text, "Nice. *since January*. What next?")
         self.assertEqual(chat.call_args.kwargs["max_tokens"], tutor.MAX_REPLY_TOKENS)
+
+
+class FluencyRetellContextTests(TestCase):
+    fixtures = ["seed"]
+
+    def setUp(self):
+        self.learner = Learner.for_user(get_user_model().objects.create_user("lu", first_name="Lu"))
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=Track.objects.get(slug="work"), skill="speaking",
+            plan={**PLAN, "fluency_retell": {"prompt": "Tell me again how you chose the queue.", "rounds": [60, 40]}},
+        )
+
+    def context(self, phase="wrap_up"):
+        messages = tutor.build_messages(self.lesson, phase_key=phase, event="phase_start")
+        # The context message is prefixed with a label before the JSON.
+        return json.loads(messages[1]["content"].split("\n", 1)[1])
+
+    def test_the_tutor_gets_the_retell_and_its_clock(self):
+        retell = self.context()["plan"]["fluency_retell"]
+        self.assertEqual(retell["prompt"], "Tell me again how you chose the queue.")
+        self.assertEqual(retell["rounds"], [60, 40])
+
+    def test_the_rules_of_the_round_reach_the_system_prompt(self):
+        system = tutor.build_messages(self.lesson, phase_key="wrap_up", event="phase_start")[0]["content"]
+        self.assertIn("fluency round", system)
+        self.assertIn("Do not correct anything", system)
+
+    def test_a_lesson_without_one_carries_nothing(self):
+        self.lesson.plan = PLAN
+        self.lesson.save()
+        self.assertIsNone(self.context()["plan"]["fluency_retell"])

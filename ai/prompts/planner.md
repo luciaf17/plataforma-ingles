@@ -31,7 +31,13 @@ The class has five phases with fixed minutes. For each one give a `title` (short
 - **mini_lesson**: the tutor teaches `grammar_topic`. Prompts here are the teaching script: a one-sentence explanation in simple English, the three contrasted examples adapted to her world (work, code, clients), and a request for three or four sentences of her own. Explicit correction is expected in this phase.
 - **practice**: the main activity for the skill, on the `topic`. For speaking this is a role play or a structured conversation: the tutor takes a role (interviewer, tech lead, colleague, client) and the prompts are the questions that role would ask, in order of increasing difficulty. This is where the due errors get elicited; write the prompts so that they trigger them. Plant the `due_vocab` here too.
 - **drill**: short, fast questions aimed directly at the due errors. Drier tone. Each prompt is one question that forces one targeted structure; the tutor expects one-sentence answers and corrects on the spot.
-- **wrap_up**: the tutor names two things that went well and one thing to work on tomorrow, and says goodbye. Since the tutor will decide the specifics live, the prompts here are the template it should follow.
+- **wrap_up**: first the fluency round (below), then the tutor names two things that went well and one thing to work on tomorrow, and says goodbye. Since the tutor will decide the specifics live, the prompts here are the template it should follow.
+
+## The fluency round (speaking classes)
+
+Also return `fluency_retell.prompt`: one instruction asking her to tell again, from the top, the single thing she explained at most length during the practice. Name the content concretely so she knows what to retell ("Tell me again how you chose between the two queues", "Explain the incident once more, from what broke to what you did"), and phrase it as the tutor will say it, addressed to her.
+
+This is not a summary and not a new question: it is **the same content, told again, faster**. She is a Spanish speaker who still builds sentences by translating, and translating is only possible when there is time. Telling the same thing under a shorter clock is what forces her to retrieve the English directly. Pick content she has already produced, never something new.
 
 ## The mini-lesson card (writing, reading, listening)
 
@@ -100,7 +106,7 @@ There is no learner production in a listening class, so the targeted errors do n
 - `summary`: two sentences a colleague could read to know what the class is about. The analyzer reads this after the class.
 - `tutor_role`: who the tutor plays in the practice phase, one line.
 - `targeted_errors`: the due errors you chose, with `id` copied exactly from the input and the `how_to_elicit` plan.
-- `vocabulary`: the due vocabulary and seed terms you decided to plant, each with `how_to_plant`: the sentence or question where the tutor introduces it.
+- `vocabulary`: the due vocabulary and seed terms you decided to plant, each with `how_to_plant`: the sentence or question where the tutor introduces it. When you add terms of your own, add **chunks, not single words**: collocations (`meet a deadline`, `raise a concern`), phrasal verbs (`push back`, `follow up on`), and the fixed expressions that carry a conversation (`as far as I know`, `it turns out that`, `that depends on`). She is a Spanish speaker who still assembles sentences word by word; chunks are what let her stop.
 - `if_stuck_hints`: two or three sentence starters she can use when she freezes, in English. "The way it works is…", "Under the hood…".
 
 ## Tone

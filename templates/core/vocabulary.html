@@ -2,7 +2,9 @@
 
 {% block content %}
 <div class="head">
-  <div><h1>Vocabulary</h1><p>Words you looked up, words the tutor planted, and words you've started using on your own.</p></div>
+  <div><h1>Vocabulary</h1><p>Words you looked up, words the tutor planted, and words you've started using on your own.</p>
+    <p class="chunk-note">{{ chunk_count }} of your {{ total_count }} entr{{ total_count|pluralize:"y,ies" }} {{ chunk_count|pluralize:"is,are" }} a <b>chunk</b>: a phrase you retrieve whole rather than assemble word by word. Chunks are what let you answer without translating first.</p>
+  </div>
 </div>
 
 <div class="filters">
@@ -25,6 +27,8 @@
 {% block head %}
 <style>
   .filters .pill.on{background:var(--panel-2);color:var(--ink)}
+  .chunk-note{margin-top:6px;max-width:60ch}
+  .vcard .chunk{font-size:11px;color:var(--green);border:1px solid var(--green);border-radius:99px;padding:1px 7px;vertical-align:middle;margin-left:6px}
   .vfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
   .vfoot form{display:flex;gap:10px}
   .vfoot .act{color:var(--ink-3);font-size:12px}

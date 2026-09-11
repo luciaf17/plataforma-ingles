@@ -66,6 +66,7 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
             "targeted_errors": plan.get("targeted_errors", []),
             "vocabulary": plan.get("vocabulary", []),
             "if_stuck_hints": plan.get("if_stuck_hints", []),
+            "fluency_retell": plan.get("fluency_retell"),
         },
         "phase": phase_info(plan, phase_key, elapsed_in_phase_s=elapsed_in_phase_s),
         "event": event,

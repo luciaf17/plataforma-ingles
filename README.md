@@ -75,6 +75,23 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## Fluency: the retell round
+
+The wrap-up of a speaking class is not only feedback. The plan carries a
+`fluency_retell`: the tutor asks the learner to tell again, from the top, the
+thing she explained at most length, first in 60 seconds and then in 40. The
+model picks the content; the clock is `planner.RETELL_ROUNDS`, not its choice.
+Nothing is corrected during the round.
+
+This is Nation's 4/3/2, scaled to the minutes a 20-minute class can spare, and
+it is why the speaking phases deviate from the spec 4.1b table: the wrap-up
+went from 1 minute to 3, paid for out of practice and drill.
+
+The same reasoning drives vocabulary: the analyzer and the planner record
+**chunks** (`push back on a nitpick`, `what does X mean?`) rather than bare
+words, because a speaker retrieves a chunk whole and assembles a sentence one
+word at a time. `VocabItem.is_chunk` is what the Vocabulary screen counts.
+
 ## Reading from real articles
 
 Reading lessons quote a real piece published in the last few days instead of a

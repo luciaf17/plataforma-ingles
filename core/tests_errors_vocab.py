@@ -159,3 +159,34 @@ class VocabDefineTests(Base):
         self.assertEqual(response.status_code, 503)
         self.assertIn("Could not look it up", response.content.decode())
         self.assertIn("<b>rq</b>", response.content.decode())
+
+
+class ChunkTests(Base):
+    """Multi-word entries are counted apart: a chunk is retrieved whole, a word is assembled."""
+
+    def vocab(self, term, **kwargs):
+        return VocabItem.objects.create(learner=self.learner, term=term, next_review_at=self.today, **kwargs)
+
+    def test_is_chunk_is_about_spaces_not_length(self):
+        self.assertTrue(self.vocab("push back on a nitpick").is_chunk)
+        self.assertTrue(self.vocab("as far as i know").is_chunk)
+        self.assertFalse(self.vocab("nitpick").is_chunk)
+        self.assertFalse(self.vocab("  bottleneck  ").is_chunk)
+
+    def test_a_hyphenated_word_is_not_a_chunk(self):
+        self.assertFalse(self.vocab("trade-off").is_chunk)
+
+    def test_the_page_counts_chunks_across_every_status(self):
+        self.vocab("meet a deadline", status="target")
+        self.vocab("follow up on", status="emerging")
+        self.vocab("throughput", status="acquired")
+        response = self.client.get("/vocabulary/")
+        self.assertEqual(response.context["total_count"], 3)
+        self.assertEqual(response.context["chunk_count"], 2)
+        self.assertContains(response, "2 of your 3 entries")
+
+    def test_the_card_marks_a_chunk(self):
+        self.vocab("meet a deadline", status="target")
+        self.vocab("throughput", status="target")
+        html = self.client.get("/vocabulary/").content.decode()
+        self.assertEqual(html.count('class="chunk"'), 1)

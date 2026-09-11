@@ -266,10 +266,13 @@ def vocabulary_page(request):
         filter_key = "target"
     counts = {key: VocabItem.objects.filter(learner=learner, status=key).count() for key, _ in VOCAB_FILTERS}
     items = VocabItem.objects.filter(learner=learner, status=filter_key).select_related("track").order_by("next_review_at", "term")
+    all_terms = VocabItem.objects.filter(learner=learner).values_list("term", flat=True)
     context = {
         "section": "vocabulary",
         "title": "Vocabulary",
         "items": items,
+        "total_count": len(all_terms),
+        "chunk_count": sum(1 for term in all_terms if " " in term.strip()),
         "filter": filter_key,
         "filters": VOCAB_FILTERS,
         "counts": counts,

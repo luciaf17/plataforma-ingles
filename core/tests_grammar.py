@@ -48,7 +48,7 @@ class ProgramTests(GrammarBase):
         self.assertIn("Present perfect with since / for", html)
         self.assertIn("trabajo acá desde 2021", html)
         self.assertIn("Drill this now", html)
-        self.assertIn("0 of 34 mastered", html)
+        self.assertIn(f"0 of {GrammarTopic.objects.count()} mastered", html)
         self.assertIn("Drill what's due", html)
 
 
@@ -160,3 +160,23 @@ class ErrorForcesMiniLessonTests(GrammarBase):
 
         html = self.client.get("/grammar/").content.decode()
         self.assertIn("3 errors", html)
+
+
+class SyllabusShapeTests(TestCase):
+    """The seeded syllabus and migration 0003 have to agree on the order."""
+
+    fixtures = ["seed"]
+
+    def test_orders_are_contiguous_and_unique(self):
+        orders = list(GrammarTopic.objects.order_by("order").values_list("order", flat=True))
+        self.assertEqual(orders, list(range(1, len(orders) + 1)))
+
+    def test_question_formation_comes_second(self):
+        topic = GrammarTopic.objects.get(slug="question-formation")
+        self.assertEqual((topic.order, topic.cefr_level), (2, "A2"))
+        self.assertIn("word_order", topic.related_subcategories)
+        # The example is the mistake this learner actually made at her checkpoint.
+        self.assertTrue(any("mean" in e["wrong"] for e in topic.examples))
+
+    def test_the_present_simple_still_opens_the_program(self):
+        self.assertEqual(GrammarTopic.objects.order_by("order").first().slug, "present-simple-vs-continuous")
