@@ -1,0 +1,52 @@
+<div class="card day-card">
+  <h3>Today's class <small>{{ day.done }} of {{ day.total }} done{% if day.minutes %} · {{ day.minutes }} min so far{% endif %}</small></h3>
+
+  <div class="day-bar"><i style="width:{{ day.pct }}%"></i></div>
+
+  <div class="day-skills">
+    {% for row in day.rows %}
+      <div class="day-skill {{ row.state }}">
+        <i class="mark">{% if row.state == 'done' %}✓{% elif row.state == 'open' %}▸{% else %}○{% endif %}</i>
+        <div class="what">
+          <b>{{ row.name }}</b>
+          <span>
+            {% if row.state == 'done' %}
+              {{ row.lesson.title }}{% if row.minutes %} · {{ row.minutes }} min{% endif %}
+            {% elif row.state == 'open' %}
+              {{ row.lesson.title }}{% if row.also_done %} · a second one, already practised today{% endif %}
+            {% else %}
+              not started
+            {% endif %}
+          </span>
+        </div>
+        {% if row.state == 'done' %}
+          <a class="act" href="{% url 'lessons:report' row.lesson.id %}">Report</a>
+        {% elif row.state == 'open' %}
+          <span class="day-acts">
+            <a class="btn" href="{% url 'lessons:runner' row.lesson.id %}">{% if row.lesson.status == 'in_progress' %}Resume{% else %}Start{% endif %}</a>
+            <form method="post" action="{% url 'core:drop_lesson' row.lesson.id %}">{% csrf_token %}<button class="act" type="submit" title="{% if row.lesson.status == 'in_progress' %}Close it and file what you said{% else %}Discard it{% endif %}">{% if row.lesson.status == 'in_progress' %}Finish{% else %}Drop{% endif %}</button></form>
+          </span>
+        {% else %}
+          <a class="btn ghost" href="{{ row.start_url }}">Start</a>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  {% if day.checkpoint %}
+    <p class="hint" style="margin-top:10px">Checkpoint today: <a href="{% url 'lessons:runner' day.checkpoint.id %}" style="color:var(--amber)">{{ day.checkpoint.title }}</a></p>
+  {% endif %}
+
+  <div class="day-totals">
+    <div><b>{{ day.minutes }}</b><span>minute{{ day.minutes|pluralize }}</span></div>
+    <div><b class="ok">{{ day.errors_avoided }}</b><span>error{{ day.errors_avoided|pluralize }} avoided</span></div>
+    <div><b class="new">{{ day.new_errors }}</b><span>new in your file</span></div>
+    <div><b>{{ day.recycled_errors }}</b><span>came back</span></div>
+  </div>
+
+  {% if day.all_done %}
+    <p class="hint" style="margin-top:10px">All four done today. That is a full class.</p>
+  {% elif day.done %}
+    <p class="hint" style="margin-top:10px">The class of the day is done. Anything else you start now is extra practice.</p>
+  {% endif %}
+</div>

@@ -2,12 +2,15 @@
 
 from datetime import timedelta
 
+from django.conf import settings
+
 from ai.level_assessor import BANDS
 from learners.models import CEFR_ORDER, GrammarTopic, LearnerGrammarTopic
 from lessons import leveling
 from lessons.models import Lesson, LessonReport
 
 FINISHED = (Lesson.Status.COMPLETED, Lesson.Status.ANALYZED)
+OPEN = (Lesson.Status.PLANNED, Lesson.Status.IN_PROGRESS)
 # Rough position of each band on a bar that reaches B2 at ~62% (prototype values).
 LEVEL_PCT = {"A1": 12, "A2": 28, "B1": 45, "B2": 62, "C1": 82, "C2": 100}
 SKILL_NAMES = [("speaking", "Speaking"), ("listening", "Listening"), ("reading", "Reading"), ("writing", "Writing")]
@@ -100,6 +103,60 @@ def unfinished_lessons(learner, today):
         .select_related("track")
         .order_by("-scheduled_for")
     )
+
+
+# The sidebar entry for a skill prepares today's lesson for it and opens it,
+# which is exactly what "start this now" needs to do.
+SKILL_URLS = {"speaking": "/speaking/", "listening": "/listening/", "reading": "/reading/", "writing": "/writing/"}
+
+
+def todays_class(learner, today):
+    """The day across the four skills, with the totals so far.
+
+    One lesson a day is what the planner prepares; a full class in the
+    traditional sense is all four, so the day is measured against them and the
+    three she has not taken on are one tap away.
+    """
+    lessons = list(learner.lessons.filter(scheduled_for=today).select_related("track").order_by("created_at"))
+    reports = {r.lesson_id: r for r in LessonReport.objects.filter(lesson__in=lessons)}
+    enabled = [(key, name) for key, name in SKILL_NAMES if key in settings.LESSON_SKILLS_ENABLED]
+
+    rows = []
+    for key, name in enabled:
+        mine = [lesson for lesson in lessons if lesson.skill == key]
+        done = next((lesson for lesson in mine if lesson.status in FINISHED), None)
+        open_one = next((lesson for lesson in mine if lesson.status in OPEN), None)
+        report = reports.get(done.id) if done else None
+        rows.append({
+            "key": key,
+            "name": name,
+            # An open lesson wins the row even when the skill is already done:
+            # it is the one that still needs resuming or dropping.
+            "lesson": open_one or done,
+            "state": "open" if open_one else ("done" if done else "todo"),
+            "done": done,
+            "also_done": bool(done and open_one),
+            "minutes": round((done.duration_seconds or 0) / 60) if done and done.duration_seconds else None,
+            "report": report,
+            "start_url": SKILL_URLS[key],
+        })
+
+    # The bar counts skills practised today, whether or not something else is open.
+    done_count = sum(1 for row in rows if row["done"])
+    # A checkpoint is not one of the four skills, so it is counted on its own.
+    checkpoint = next((lesson for lesson in lessons if lesson.skill == "checkpoint"), None)
+    return {
+        "rows": rows,
+        "done": done_count,
+        "total": len(rows),
+        "pct": round(done_count * 100 / len(rows)) if rows else 0,
+        "checkpoint": checkpoint,
+        "minutes": sum(round((lesson.duration_seconds or 0) / 60) for lesson in lessons if lesson.status in FINISHED),
+        "errors_avoided": sum(r.errors_avoided_count for r in reports.values()),
+        "new_errors": sum(r.new_errors_count for r in reports.values()),
+        "recycled_errors": sum(r.recycled_errors_count for r in reports.values()),
+        "all_done": bool(rows) and done_count == len(rows),
+    }
 
 
 def recent_lessons(learner, today, limit=5):

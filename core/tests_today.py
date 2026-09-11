@@ -264,3 +264,49 @@ class WarmAudioTests(TodayBase):
         self.assertEqual(views.warm_audio_url(self.lesson(days_ago=0, status="planned")), "")
         self.assertEqual(views.warm_audio_url(self.listening_lesson(status="analyzed")), "")
         self.assertEqual(views.warm_audio_url(None), "")
+
+
+class TodaysClassTests(TodayBase):
+    """The day is measured against the four skills, and nothing open is hidden."""
+
+    def day(self):
+        return dashboard.todays_class(self.learner, self.today)
+
+    def test_an_empty_day_is_four_skills_to_do(self):
+        day = self.day()
+        self.assertEqual((day["done"], day["total"], day["pct"]), (0, 4, 0))
+        self.assertEqual({row["state"] for row in day["rows"]}, {"todo"})
+        self.assertEqual([row["key"] for row in day["rows"]], ["speaking", "listening", "reading", "writing"])
+
+    def test_a_finished_lesson_fills_a_quarter_of_the_bar(self):
+        lesson = self.lesson(days_ago=0, status="analyzed", duration_seconds=1200)
+        LessonReport.objects.create(lesson=lesson, summary_es="x", errors_avoided_count=2, new_errors_count=1, recycled_errors_count=3)
+        day = self.day()
+        self.assertEqual((day["done"], day["pct"]), (1, 25))
+        self.assertEqual((day["minutes"], day["errors_avoided"], day["new_errors"], day["recycled_errors"]), (20, 2, 1, 3))
+        speaking = day["rows"][0]
+        self.assertEqual((speaking["state"], speaking["minutes"]), ("done", 20))
+
+    def test_an_open_second_lesson_stays_visible_and_still_counts_as_done(self):
+        """Opening a skill from the sidebar starts a fresh lesson; hiding it
+        behind the finished one left no way to resume or drop it."""
+        self.lesson(days_ago=0, status="analyzed")
+        open_one = self.lesson(days_ago=0, status="in_progress", plan={**PLAN, "title": "A second one"})
+        speaking = self.day()["rows"][0]
+        self.assertEqual((speaking["state"], speaking["lesson"].id, speaking["also_done"]), ("open", open_one.id, True))
+        self.assertEqual(self.day()["done"], 1)
+
+        html = self.client.get("/").content.decode()
+        self.assertIn("already practised today", html)
+        self.assertIn(f"/today/drop/{open_one.id}/", html)
+
+    def test_all_four_is_a_full_class(self):
+        for skill in ["speaking", "listening", "reading", "writing"]:
+            self.lesson(days_ago=0, status="analyzed", skill=skill)
+        day = self.day()
+        self.assertEqual((day["done"], day["pct"], day["all_done"]), (4, 100, True))
+        self.assertContains(self.client.get("/"), "That is a full class")
+
+    def test_yesterdays_lessons_are_not_todays_class(self):
+        self.lesson(days_ago=1, status="analyzed")
+        self.assertEqual(self.day()["done"], 0)

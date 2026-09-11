@@ -151,6 +151,7 @@ def today(request):
         "program": dashboard.program_progress(learner),
         "recent": dashboard.recent_lessons(learner, today_date),
         "unfinished": dashboard.unfinished_lessons(learner, today_date),
+        "day": dashboard.todays_class(learner, today_date),
         **lesson_card_context(request, learner, lesson),
     }
     return render(request, "core/today.html", context)
