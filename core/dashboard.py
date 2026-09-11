@@ -37,18 +37,38 @@ def day_number(learner, today):
 
 
 def last_days(learner, today, count=14):
-    """Cells for the streak strip: done / today (pending) / empty."""
-    days = finished_days(learner)
+    """Cells for the streak strip: how full each of the last days was.
+
+    A day is measured the same way Today measures it, against the four
+    skills, so the strip shows a half-done day as half full instead of
+    flattening it to a tick.
+    """
+    total = len([key for key, _ in SKILL_NAMES if key in settings.LESSON_SKILLS_ENABLED]) or 1
+    first = today - timedelta(days=count - 1)
+    done_per_day = {}
+    finished = learner.lessons.filter(status__in=FINISHED, scheduled_for__gte=first, scheduled_for__lte=today)
+    for day, skill in finished.values_list("scheduled_for", "skill"):
+        done_per_day.setdefault(day, set()).add(skill)
+
     cells = []
     for offset in range(count - 1, -1, -1):
         day = today - timedelta(days=offset)
-        if day in days:
+        skills = done_per_day.get(day, set())
+        # A checkpoint covers every skill at once, so it counts as a full day.
+        done = total if "checkpoint" in skills else len(skills & {key for key, _ in SKILL_NAMES})
+        if done:
             state = "done"
         elif day == today:
             state = "today"
         else:
             state = "empty"
-        cells.append({"date": day, "state": state})
+        cells.append({
+            "date": day,
+            "state": state,
+            "done": done,
+            "total": total,
+            "pct": min(100, round(done * 100 / total)),
+        })
     return cells
 
 

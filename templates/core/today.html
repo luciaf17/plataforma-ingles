@@ -21,7 +21,8 @@
     <div class="card">
       <h3>Streak</h3>
       <div class="streak"><b>{{ streak }}</b><span>{{ streak|pluralize:"day,days" }} in a row</span></div>
-      <div class="days">{% for d in last_days %}<i class="{% if d.state == 'done' %}d{% elif d.state == 'today' %}h{% endif %}" title="{{ d.date|date:'D j M' }}"></i>{% endfor %}</div>
+      <div class="days">{% for d in last_days %}<i class="{% if d.state == 'done' %}d{% elif d.state == 'today' %}h{% endif %}" style="--p:{{ d.pct }}%" title="{{ d.date|date:'D j M' }}: {{ d.done }} of {{ d.total }}"></i>{% endfor %}</div>
+      <p class="hint" style="margin-top:8px;font-size:12px">Each bar fills with the skills you practised that day.</p>
     </div>
     <div class="card">
       <h3>Level by skill <small>bar = progress to {{ learner.target_level }}</small></h3>
@@ -74,6 +75,11 @@
 
 {% block head %}
 <style>
+  .proposed{border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+  .proposed>b{font-size:12px;color:var(--amber);display:block;margin-bottom:6px}
+  .proposed p{margin-bottom:6px;font-size:13px}
+  .proposed p span{display:block;color:var(--ink-2)}
+  .proposed p i{color:var(--ink-3);font-style:normal;font-size:12px}
   .day-bar{height:8px;border-radius:99px;background:var(--panel-2);overflow:hidden;margin:12px 0 14px}
   .day-bar i{display:block;height:100%;background:var(--amber);border-radius:99px;transition:width .3s}
   .day-skills{display:flex;flex-direction:column}

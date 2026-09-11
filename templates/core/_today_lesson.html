@@ -70,9 +70,17 @@
       <label>Topic
         <select name="topic">
           <option value="">Let the planner choose</option>
-          {% for t in picker.topics %}<option value="{{ t.id }}">{{ t.track.name }} · {{ t.title }}</option>{% endfor %}
+          {% for t in picker.topics %}<option value="{{ t.id }}">{% if t.is_proposed %}★ {% endif %}{{ t.track.name }} · {{ t.title }}</option>{% endfor %}
         </select>
       </label>
+      {% if picker.proposed %}
+        <div class="proposed" style="grid-column:1/-1">
+          <b>★ Written for you</b>
+          {% for t in picker.proposed %}
+            <p><span>{{ t.title }}</span>{% if t.proposed_reason %}<i>{{ t.proposed_reason }}</i>{% endif %}</p>
+          {% endfor %}
+        </div>
+      {% endif %}
       <label style="grid-column:1/-1">What do you want to work on today? <span style="color:var(--ink-3)">(optional, in any language)</span>
         <input type="text" name="request" maxlength="500" placeholder="e.g. I have an interview at a fintech on Friday" value="{{ lesson.plan.learner_request|default:'' }}">
       </label>

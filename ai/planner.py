@@ -24,7 +24,7 @@ from articles import models as articles
 from learners.models import GrammarTopic, LearnerGrammarTopic, Topic, Track
 from lessons.models import ErrorItem, Lesson, VocabItem
 
-from . import client
+from . import choose_article, client
 from .prompts import load_prompt
 
 log = logging.getLogger("ai.planner")
@@ -109,9 +109,10 @@ def recent_topic_titles(learner, limit=RECENT_TOPICS):
 
 def choose_topic(learner, track, rng=random):
     recent_ids = set(learner.lessons.order_by("-scheduled_for", "-created_at").values_list("topic_id", flat=True)[:RECENT_TOPICS])
-    candidates = list(Topic.objects.filter(track=track, is_active=True).exclude(id__in=recent_ids))
+    available = Topic.objects.visible_to(learner).filter(track=track)
+    candidates = list(available.exclude(id__in=recent_ids))
     if not candidates:
-        candidates = list(Topic.objects.filter(track=track, is_active=True))
+        candidates = list(available)
     if not candidates:
         raise NothingToPlan(f"No active topics for track {track.slug}; run `loaddata seed`")
     return rng.choice(candidates)
@@ -203,7 +204,7 @@ def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEF
         request=(request or "").strip()[:500],
         # Reading lessons quote a real article when the pool has one; with an
         # empty pool the planner writes its own text as before.
-        article=articles.pick_for(learner, rng=rng) if skill == "reading" else None,
+        article=choose_article.choose(learner, rng=rng) if skill == "reading" else None,
     )
 
 

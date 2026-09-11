@@ -88,7 +88,8 @@ a{color:inherit;text-decoration:none}
 .streak span{color:var(--ink-2)}
 .days{display:flex;gap:5px;margin-top:14px}
 .days i{flex:1;height:22px;border-radius:4px;background:var(--panel-2)}
-.days i.d{background:var(--green)}
+/* Filled from the bottom by how much of that day's class was done. */
+.days i.d{background:linear-gradient(to top,var(--green) var(--p,100%),var(--panel-2) var(--p,100%))}
 .days i.h{background:var(--amber)}
 
 .list{display:flex;flex-direction:column}

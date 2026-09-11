@@ -75,6 +75,25 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## Following her, not a list
+
+Two jobs read the student file and change what the app offers.
+
+`ai/choose_article.py` picks the reading of the day instead of drawing it at
+random. It sends the model titles and sources only — never article bodies —
+along with her goal, recent class topics, and her taste: what she has read and
+what she pressed "read something else" on. A rejection is the strongest signal
+it has. Any failure falls back to the random pick, so reading is never blocked.
+
+`ai/propose_topics.py` writes new lesson subjects out of her file (her
+free-text requests first, then the errors that keep coming back) when she is
+close to running out. A proposed `Topic` carries the learner it was written
+for and a Spanish `proposed_reason` she reads in the picker; seeded topics
+have no learner and stay shared. `Topic.objects.visible_to(learner)` is the
+one place that knows the difference.
+
+Both run from the cron, before the day's lesson is planned.
+
 ## Fluency: the retell round
 
 The wrap-up of a speaking class is not only feedback. The plan carries a

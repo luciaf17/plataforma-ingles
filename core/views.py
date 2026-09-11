@@ -54,7 +54,12 @@ def lesson_card_context(request, learner, lesson, error=None):
             "skills": [s for s in planner.SKILLS if s in settings.LESSON_SKILLS_ENABLED],
             "tracks": Track.objects.filter(slug__in=planner.TRACKS).order_by("slug"),
             "durations": PICKER_DURATIONS,
-            "topics": Topic.objects.filter(is_active=True).select_related("track").order_by("track__slug", "title"),
+            "topics": Topic.objects.visible_to(learner).select_related("track").order_by("track__slug", "title"),
+            # Written for her out of her own file, newest first, with the reason.
+            "proposed": list(
+                Topic.objects.filter(learner=learner, is_active=True)
+                .select_related("track").order_by("-created_at")[:3]
+            ),
         },
     }
 

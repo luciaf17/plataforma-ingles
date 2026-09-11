@@ -12,6 +12,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_POST
 
 from ai import analyzer, client, level_assessor, minilesson, planner, tutor, vocab, writing
+from articles import models as articles
 from learners.models import Learner
 
 from . import leveling, postprocess
@@ -548,6 +549,12 @@ def another_article(request, lesson_id):
     if lesson.skill != "reading" or lesson.status in (Lesson.Status.COMPLETED, Lesson.Status.ANALYZED):
         return redirect("lessons:runner", lesson_id=lesson.id)
     plan = lesson.plan or {}
+    rejected_id = (plan.get("reading_task") or {}).get("article_id")
+    if rejected_id:
+        article = articles.Article.objects.filter(id=rejected_id).first()
+        if article:
+            # Not just "seen": she looked at it and asked for something else.
+            articles.mark_rejected(article, lesson.learner)
     # `force` refuses to replace a lesson in progress, a guard meant to protect
     # a conversation halfway through. There is nothing to protect here.
     lesson.status = Lesson.Status.PLANNED

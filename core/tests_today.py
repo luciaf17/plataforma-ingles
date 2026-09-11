@@ -8,7 +8,7 @@ from django.utils import timezone
 from ai import client as ai_client
 from ai.tests_tutor import PLAN
 from core import dashboard, views
-from learners.models import GrammarTopic, Learner, LearnerGrammarTopic, Track
+from learners.models import GrammarTopic, Learner, LearnerGrammarTopic, Topic, Track
 from lessons.models import ErrorItem, Lesson, LessonReport
 
 
@@ -310,3 +310,69 @@ class TodaysClassTests(TodayBase):
     def test_yesterdays_lessons_are_not_todays_class(self):
         self.lesson(days_ago=1, status="analyzed")
         self.assertEqual(self.day()["done"], 0)
+
+
+class DayFillTests(TodayBase):
+    """The strip shows how full each day was, not just whether it happened."""
+
+    def cell(self, cells, days_ago):
+        return cells[-1 - days_ago]
+
+    def test_an_untouched_day_is_empty(self):
+        cells = dashboard.last_days(self.learner, self.today)
+        self.assertEqual(len(cells), 14)
+        self.assertEqual(self.cell(cells, 0)["state"], "today")
+        self.assertEqual(self.cell(cells, 3)["state"], "empty")
+        self.assertEqual(self.cell(cells, 3)["pct"], 0)
+
+    def test_one_skill_fills_a_quarter(self):
+        self.lesson(days_ago=2, status="analyzed", skill="speaking")
+        cell = self.cell(dashboard.last_days(self.learner, self.today), 2)
+        self.assertEqual((cell["state"], cell["done"], cell["total"], cell["pct"]), ("done", 1, 4, 25))
+
+    def test_two_lessons_of_the_same_skill_still_count_once(self):
+        self.lesson(days_ago=1, status="analyzed", skill="reading")
+        self.lesson(days_ago=1, status="analyzed", skill="reading")
+        self.assertEqual(self.cell(dashboard.last_days(self.learner, self.today), 1)["done"], 1)
+
+    def test_all_four_fills_the_day(self):
+        for skill in ["speaking", "listening", "reading", "writing"]:
+            self.lesson(days_ago=1, status="analyzed", skill=skill)
+        self.assertEqual(self.cell(dashboard.last_days(self.learner, self.today), 1)["pct"], 100)
+
+    def test_a_checkpoint_counts_as_a_full_day(self):
+        """It tests every skill in one sitting, so it is not a quarter of a day."""
+        self.lesson(days_ago=4, status="analyzed", skill="checkpoint")
+        self.assertEqual(self.cell(dashboard.last_days(self.learner, self.today), 4)["pct"], 100)
+
+    def test_an_unfinished_lesson_does_not_fill_anything(self):
+        self.lesson(days_ago=2, status="in_progress", skill="speaking")
+        self.assertEqual(self.cell(dashboard.last_days(self.learner, self.today), 2)["done"], 0)
+
+
+class ProposedTopicsInPickerTests(TodayBase):
+    """Topics the app wrote for her are marked, with the reason it wrote them."""
+
+    def setUp(self):
+        super().setUp()
+        # The picker only exists once there is a lesson card to hang it on.
+        self.lesson(days_ago=0, status="analyzed")
+
+    def test_the_picker_shows_hers_and_says_why(self):
+        Topic.objects.create(
+            track=self.work, title="Admitting you broke production", learner=self.learner,
+            proposed_reason="Porque pediste practicar situaciones incómodas.",
+        )
+        html = self.client.get("/").content.decode()
+        self.assertIn("★ Written for you", html)
+        self.assertIn("Admitting you broke production", html)
+        self.assertIn("situaciones incómodas", html)
+
+    def test_another_learners_topic_is_not_offered(self):
+        other = Learner.for_user(get_user_model().objects.create_user("eze"))
+        Topic.objects.create(track=self.work, title="Not hers at all", learner=other)
+        html = self.client.get("/").content.decode()
+        self.assertNotIn("Not hers at all", html)
+
+    def test_with_nothing_proposed_the_block_is_absent(self):
+        self.assertNotIn("Written for you", self.client.get("/").content.decode())

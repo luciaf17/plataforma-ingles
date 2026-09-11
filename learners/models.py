@@ -62,17 +62,40 @@ class Track(models.Model):
         return self.name
 
 
+class TopicQuerySet(models.QuerySet):
+    def visible_to(self, learner):
+        """The shared, seeded topics plus the ones written for this learner."""
+        return self.filter(is_active=True).filter(models.Q(learner=None) | models.Q(learner=learner))
+
+
 class Topic(models.Model):
-    """A lesson subject inside a track, with the vocabulary it should surface."""
+    """A lesson subject inside a track, with the vocabulary it should surface.
+
+    Seeded topics are shared; a topic with a `learner` was proposed for her out
+    of her own file and is hers alone.
+    """
 
     track = models.ForeignKey(Track, on_delete=models.CASCADE, related_name="topics")
     title = models.CharField(max_length=160)
     description = models.TextField(blank=True)
     seed_vocabulary = models.JSONField(default=list, blank=True, help_text="List of target terms")
     is_active = models.BooleanField(default=True)
+    # A seeded topic (null learner) is offered to everybody; a proposed one was
+    # written for one learner out of her own file and belongs to her alone.
+    learner = models.ForeignKey(
+        "Learner", null=True, blank=True, on_delete=models.CASCADE, related_name="proposed_topics"
+    )
+    proposed_reason = models.TextField(blank=True, help_text="Why this was proposed, in Spanish, for her to read")
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+    objects = TopicQuerySet.as_manager()
 
     class Meta:
         ordering = ["track", "title"]
+
+    @property
+    def is_proposed(self):
+        return self.learner_id is not None
 
     def __str__(self):
         return self.title

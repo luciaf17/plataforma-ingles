@@ -11,6 +11,8 @@ from django.utils import timezone
 from ai import client as ai_client
 from ai import planner, writing
 from ai.tests_tutor import PLAN
+from articles import models as articles_models
+from articles.models import Article, ArticleUse
 from learners.models import Learner, Track
 
 from . import views
@@ -242,3 +244,37 @@ class AnotherArticleTests(TestCase):
         html = self.client.get(f"/lessons/{self.lesson.id}/").content.decode()
         self.assertIn("Read something else", html)
         self.assertIn(self.url, html)
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["reading"])
+class RejectionIsRememberedTests(TestCase):
+    """Swapping a text is a judgement about it, and the chooser learns from it."""
+
+    fixtures = ["seed"]
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("lu", password="pw")
+        self.learner = Learner.for_user(self.user)
+        self.client.login(username="lu", password="pw")
+        body = " ".join(["The team moved the queue and watched the latency drop."] * 40)
+        self.article = Article.objects.create(
+            source="devto", source_name="dev.to", url="https://dev.to/dull", title="A dull one",
+            text=body, word_count=len(body.split()), published_at=timezone.now(),
+        )
+        ArticleUse.objects.create(article=self.article, learner=self.learner)
+        plan = {**READING_PLAN, "reading_task": {**READING_PLAN["reading_task"], "article_id": self.article.id}}
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=Track.objects.get(slug="work"), skill="reading",
+            status="in_progress", scheduled_for=timezone.localdate(), plan=plan,
+        )
+
+    def test_the_rejected_article_is_recorded_as_rejected(self):
+        chat = SimpleNamespace(
+            data={**PLAN, "reading_task": TASK, "mini_lesson_card": None},
+            content="{}", model="m", prompt_tokens=1, completion_tokens=1,
+        )
+        with mock.patch.object(planner.client, "chat_json", return_value=chat):
+            self.client.post(f"/lessons/{self.lesson.id}/another-article/")
+        use = ArticleUse.objects.get(article=self.article, learner=self.learner)
+        self.assertTrue(use.rejected)
+        self.assertEqual(articles_models.taste(self.learner)["rejected"], ["A dull one"])
