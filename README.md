@@ -75,6 +75,23 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## The mini-lesson card
+
+Classes without a tutor's voice (reading, writing, listening) teach the grammar
+point with a card she completes herself: three gap-fills and three
+multiple-choice items.
+
+The two halves are graded differently on purpose. A gap has several right
+answers (`have worked`, `'ve been working`), so `ai/minilesson.py` asks the
+model and files the misses as errors. A multiple choice has one, so
+`check_choices` grades it in code: instant, free, and the distractors can be
+built out of the exact mistake a Spanish speaker makes with that structure,
+which is what the planner prompt asks for.
+
+Speaking classes have no card. There the tutor teaches by voice and the drill
+phase is the oral equivalent; a written exercise mid-conversation would break
+the flow.
+
 ## Following her, not a list
 
 Two jobs read the student file and change what the app offers.

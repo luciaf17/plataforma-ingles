@@ -152,3 +152,124 @@ class MiniLessonViewTests(TestCase):
     def test_speaking_lessons_have_no_card(self):
         speaking = Lesson.objects.create(learner=self.learner, track=self.lesson.track, skill="speaking", plan={**WRITING_PLAN, "mini_lesson_card": None})
         self.assertEqual(self.client.post(f"/lessons/{speaking.id}/mini-lesson/", {}, HTTP_HX_REQUEST="true").status_code, 409)
+
+
+class ChoiceGradingTests(SimpleTestCase):
+    """Multiple choice is graded in code: one right answer, no model, no cost."""
+
+    CHOICES = [
+        {"id": 1, "sentence": "I ___ here since 2021.", "options": ["work", "have worked", "am working"],
+         "answer_index": 1, "explanation_es": "Con 'since' va present perfect."},
+        {"id": 2, "sentence": "It depends ___ the client.", "options": ["of", "on"],
+         "answer_index": 1, "explanation_es": "'Depend' va con 'on', no con 'of'."},
+    ]
+
+    def test_a_right_pick_carries_no_explanation(self):
+        [first, _] = minilesson.check_choices(self.CHOICES, {1: 1, 2: 1})
+        self.assertTrue(first["correct"])
+        self.assertEqual(first["chosen_text"], "have worked")
+        self.assertEqual(first["explanation_es"], "")
+
+    def test_a_wrong_pick_shows_both_and_explains(self):
+        [first, _] = minilesson.check_choices(self.CHOICES, {1: 0, 2: 1})
+        self.assertFalse(first["correct"])
+        self.assertEqual((first["chosen_text"], first["answer_text"]), ("work", "have worked"))
+        self.assertIn("present perfect", first["explanation_es"])
+
+    def test_an_unanswered_item_is_wrong_not_a_crash(self):
+        [first, _] = minilesson.check_choices(self.CHOICES, {2: 1})
+        self.assertFalse(first["correct"])
+        self.assertEqual(first["chosen_text"], "")
+
+    def test_an_out_of_range_pick_is_survivable(self):
+        [first, _] = minilesson.check_choices(self.CHOICES, {1: 99, 2: 0})
+        self.assertFalse(first["correct"])
+        self.assertEqual(first["chosen_text"], "")
+
+
+class NormaliseChoicesTests(SimpleTestCase):
+    def card(self, choices):
+        return planner.normalise_mini_lesson_card({"explanation_en": "x", "examples": [], "exercises": [], "choices": choices})
+
+    def test_options_are_capped_and_ids_added(self):
+        card = self.card([{"sentence": "a ___ b", "options": ["1", "2", "3", "4", "5"], "answer_index": 2, "explanation_es": "por esto"}])
+        self.assertEqual(card["choices"][0]["id"], 1)
+        self.assertEqual(card["choices"][0]["options"], ["1", "2", "3", "4"])
+        self.assertEqual(card["choices"][0]["answer_index"], 2)
+
+    def test_an_answer_index_out_of_range_falls_back_to_the_first(self):
+        card = self.card([{"sentence": "a", "options": ["1", "2"], "answer_index": 7, "explanation_es": ""}])
+        self.assertEqual(card["choices"][0]["answer_index"], 0)
+
+    def test_an_item_with_one_option_is_dropped(self):
+        card = self.card([{"sentence": "a", "options": ["only"], "answer_index": 0, "explanation_es": ""}])
+        self.assertEqual(card["choices"], [])
+
+    def test_no_choices_at_all_is_an_empty_list(self):
+        self.assertEqual(planner.normalise_mini_lesson_card({})["choices"], [])
+
+
+CARD_WITH_CHOICES = planner.normalise_mini_lesson_card({
+    **{k: v for k, v in CARD.items() if k in ("explanation_en", "examples", "exercises")},
+    "choices": [
+        {"sentence": "I ___ here since 2021.", "options": ["work", "have worked", "am working"],
+         "answer_index": 1, "explanation_es": "Con 'since' va present perfect."},
+        {"sentence": "It depends ___ the client.", "options": ["of", "on"],
+         "answer_index": 1, "explanation_es": "'Depend' va con 'on'."},
+    ],
+})
+
+
+class ChoiceViewTests(TestCase):
+    """The card carries both halves: gaps the model judges, choices code judges."""
+
+    fixtures = ["seed"]
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("lu", password="pw")
+        self.learner = Learner.for_user(self.user)
+        self.client.login(username="lu", password="pw")
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=Track.objects.get(slug="work"), skill="writing",
+            grammar_topic=GrammarTopic.objects.get(slug="present-perfect-since-for"),
+            plan={**WRITING_PLAN, "mini_lesson_card": CARD_WITH_CHOICES},
+        )
+        self.url = f"/lessons/{self.lesson.id}/mini-lesson/"
+
+    def right(self, **overrides):
+        data = {"ex1": "have worked", "ex2": "'ve used", "ex3": "has been living", "mc1": "1", "mc2": "1"}
+        data.update(overrides)
+        return data
+
+    def test_the_runner_renders_the_radio_groups(self):
+        html = self.client.get(f"/lessons/{self.lesson.id}/").content.decode()
+        self.assertIn("And pick the right one:", html)
+        self.assertIn('name="mc1"', html)
+        self.assertIn('name="mc2"', html)
+        self.assertIn("am working", html)
+
+    def test_everything_right_scores_five(self):
+        with mock.patch.object(minilesson.client, "chat_json") as chat_json:
+            response = self.client.post(self.url, self.right(), HTTP_HX_REQUEST="true")
+        chat_json.assert_not_called()
+        self.assertIn("5 of 5 right", response.content.decode())
+
+    def test_a_wrong_choice_is_explained_without_the_model(self):
+        with mock.patch.object(minilesson.client, "chat_json") as chat_json:
+            response = self.client.post(self.url, self.right(mc2="0"), HTTP_HX_REQUEST="true")
+        chat_json.assert_not_called()
+        html = response.content.decode()
+        self.assertIn("4 of 5 right", html)
+        self.assertIn("va con &#x27;on&#x27;", html)
+        self.lesson.refresh_from_db()
+        stored = self.lesson.plan["mini_lesson_card"]["result"]["choices"]
+        self.assertEqual([r["correct"] for r in stored], [True, False])
+
+    def test_a_missing_choice_asks_again_and_keeps_what_she_typed(self):
+        response = self.client.post(self.url, self.right(mc2=""), HTTP_HX_REQUEST="true")
+        self.assertEqual(response.status_code, 422)
+        html = response.content.decode()
+        self.assertIn("Answer everything before checking.", html)
+        self.assertIn("have worked", html)  # her gap answers survive
+        self.lesson.refresh_from_db()
+        self.assertIsNone(self.lesson.plan["mini_lesson_card"]["result"])

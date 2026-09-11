@@ -59,6 +59,27 @@ def filled(exercise, answer):
     return exercise["sentence"].replace("___", answer.strip() or "___", 1)
 
 
+def check_choices(choices, picked):
+    """Grade the multiple choice. `picked` maps id -> option index.
+
+    No model: one right answer means code can say so, immediately and for free.
+    """
+    results = []
+    for item in choices:
+        chosen = picked.get(item["id"])
+        correct = chosen is not None and chosen == item["answer_index"]
+        results.append({
+            "id": item["id"],
+            "sentence": item["sentence"],
+            "chosen": chosen,
+            "chosen_text": item["options"][chosen] if chosen is not None and 0 <= chosen < len(item["options"]) else "",
+            "answer_text": item["options"][item["answer_index"]],
+            "correct": correct,
+            "explanation_es": "" if correct else item.get("explanation_es", ""),
+        })
+    return results
+
+
 def check(exercises, answers, *, grammar_topic=None, lesson_id=None):
     """`answers` maps exercise id -> text. Returns (results, found_errors)."""
     results = []

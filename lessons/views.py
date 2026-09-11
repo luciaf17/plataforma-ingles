@@ -310,19 +310,29 @@ def mini_lesson_check(request, lesson_id):
     if card.get("result"):
         return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson)})
     answers = {ex["id"]: (request.POST.get(f"ex{ex['id']}") or "").strip() for ex in card["exercises"]}
-    if any(not a for a in answers.values()):
-        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_error": "Fill in all three before checking."}, status=422)
+    picked = {}
+    for item in card.get("choices", []):
+        raw = request.POST.get(f"mc{item['id']}")
+        if raw is not None and raw.isdigit():
+            picked[item["id"]] = int(raw)
+    missing_choice = [item["id"] for item in card.get("choices", []) if item["id"] not in picked]
+    if any(not a for a in answers.values()) or missing_choice:
+        error = "Answer everything before checking." if missing_choice else "Fill in all three before checking."
+        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_picked": picked, "mini_error": error}, status=422)
     _start(lesson)
     grammar_topic = {"title": lesson.grammar_topic.title, "summary_es": lesson.grammar_topic.summary_es} if lesson.grammar_topic else None
     try:
         results, found = minilesson.check(card["exercises"], answers, grammar_topic=grammar_topic, lesson_id=lesson.id)
     except client.AIUnavailable as exc:
-        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_error": f"Could not check right now ({exc}). Try again."}, status=503)
+        return render(request, "lessons/_mini_lesson.html", {"lesson": lesson, **mini_lesson_context(lesson), "mini_answers": answers, "mini_picked": picked, "mini_error": f"Could not check right now ({exc}). Try again."}, status=503)
+    # Multiple choice has one right answer, so it never needs the model.
+    choice_results = minilesson.check_choices(card.get("choices", []), picked)
     new, recycled = postprocess.record_errors(lesson, found, confidence="high")
     result = {
         "results": results,
-        "score": sum(1 for r in results if r["correct"]),
-        "total": len(results),
+        "choices": choice_results,
+        "score": sum(1 for r in results if r["correct"]) + sum(1 for r in choice_results if r["correct"]),
+        "total": len(results) + len(choice_results),
         "new_error_ids": [e.id for e in new],
         "recycled_error_ids": [e.id for e in recycled],
     }

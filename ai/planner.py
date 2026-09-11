@@ -295,8 +295,22 @@ MINI_LESSON_CARD_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "choices": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sentence": {"type": "string"},
+                    "options": {"type": "array", "items": {"type": "string"}},
+                    "answer_index": {"type": "integer"},
+                    "explanation_es": {"type": "string"},
+                },
+                "required": ["sentence", "options", "answer_index", "explanation_es"],
+                "additionalProperties": False,
+            },
+        },
     },
-    "required": ["explanation_en", "examples", "exercises"],
+    "required": ["explanation_en", "examples", "exercises", "choices"],
     "additionalProperties": False,
 }
 
@@ -312,6 +326,22 @@ def normalise_mini_lesson_card(card):
         accepted = [a.strip() for a in ex.get("accepted", []) if a and a.strip()]
         exercises.append({"id": index + 1, "sentence": sentence, "cue": (ex.get("cue") or "").strip(), "answer": answer, "accepted": accepted})
     card["exercises"] = exercises
+
+    choices = []
+    for index, item in enumerate(card.get("choices", [])[:3]):
+        sentence = (item.get("sentence") or "").strip()
+        options = [o.strip() for o in item.get("options", []) if o and o.strip()][:4]
+        if not sentence or len(options) < 2:
+            continue
+        answer = item.get("answer_index", 0)
+        if not isinstance(answer, int) or not 0 <= answer < len(options):
+            answer = 0
+        choices.append({
+            "id": index + 1, "sentence": sentence, "options": options,
+            "answer_index": answer, "explanation_es": (item.get("explanation_es") or "").strip(),
+        })
+    card["choices"] = choices
+
     card["examples"] = [e for e in card.get("examples", [])[:3] if e.get("wrong") and e.get("right")]
     card["explanation_en"] = (card.get("explanation_en") or "").strip()
     card.setdefault("result", None)

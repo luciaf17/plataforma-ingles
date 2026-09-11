@@ -24,6 +24,12 @@
             {% if r.explanation_es %}<small>{{ r.explanation_es }}</small>{% endif %}
           </li>
         {% endfor %}
+        {% for r in mini_result.choices %}
+          <li class="{% if r.correct %}ok{% else %}miss{% endif %}">
+            <span class="sentence"><b>{{ r.chosen_text }}</b>{% if not r.correct %} → <em>{{ r.answer_text }}</em>{% endif %}</span>
+            {% if r.explanation_es %}<small>{{ r.explanation_es }}</small>{% endif %}
+          </li>
+        {% endfor %}
       </ul>
     </div>
   {% else %}
@@ -37,6 +43,20 @@
           <input type="text" name="ex{{ ex.id }}" value="{{ mini_answers|default_if_none:''|get_item:ex.id|default:'' }}" placeholder="fill the gap" autocomplete="off">
         </label>
       {% endfor %}
+
+      {% if mini.choices %}
+        <p class="hint" style="margin-top:12px">And pick the right one:</p>
+        {% for item in mini.choices %}
+          <div class="mini-choice">
+            <span class="sentence">{{ item.sentence }}</span>
+            <div class="mc-options">
+              {% for option in item.options %}
+                <label><input type="radio" name="mc{{ item.id }}" value="{{ forloop.counter0 }}" {% if mini_picked|default_if_none:''|get_item:item.id == forloop.counter0 %}checked{% endif %}> {{ option }}</label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
       <div><button class="btn" type="submit">Check my sentences</button></div>
     </form>
   {% endif %}
@@ -54,6 +74,12 @@
   .mini-examples .ex small{display:block;color:var(--ink-3);font-family:var(--sans);font-size:12px;margin-top:2px}
   .mini-form{display:flex;flex-direction:column;gap:10px;margin-top:8px}
   .mini-exercise{display:flex;flex-direction:column;gap:4px}
+  .mini-choice{display:flex;flex-direction:column;gap:4px}
+  .mini-choice .sentence{font-family:var(--serif);font-size:16px}
+  .mc-options{display:flex;flex-direction:column;gap:2px}
+  .mc-options label{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink-2);padding:4px 8px;border-radius:6px;cursor:pointer}
+  .mc-options label:hover{background:var(--panel-2)}
+  .mc-options input{accent-color:var(--amber);margin-top:3px}
   .mini-exercise .sentence{font-family:var(--serif);font-size:16px}
   .mini-exercise .sentence small{color:var(--ink-3);font-family:var(--sans);font-size:12px}
   .mini-exercise input{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);color:var(--ink);padding:8px 10px;font:inherit;max-width:420px}
