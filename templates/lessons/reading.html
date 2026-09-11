@@ -14,8 +14,14 @@
     {% include "lessons/_mini_lesson.html" %}
     <div class="kicker">{{ task.format|default:"Text" }}{% if task.source_name %} · {{ task.source_name }}{% endif %}</div>
     <h2 class="headline">{{ task.headline }}</h2>
-    {% if task.source_url %}
-      <p class="source">Real article from {{ task.source_name }}. <a href="{{ task.source_url }}" target="_blank" rel="noopener noreferrer">Read the original ↗</a></p>
+    <p class="source">
+      {% if task.source_url %}Real article from {{ task.source_name }}. <a href="{{ task.source_url }}" target="_blank" rel="noopener noreferrer">Read the original ↗</a> · {% endif %}
+      {% if lesson.status != 'completed' and lesson.status != 'analyzed' %}
+        <button class="swap" type="submit" form="another-article">Not interesting? Read something else</button>
+      {% endif %}
+    </p>
+    {% if lesson.status != 'completed' and lesson.status != 'analyzed' %}
+      <form method="post" action="{% url 'lessons:another_article' lesson.id %}" id="another-article">{% csrf_token %}</form>
     {% endif %}
     <div class="text" id="reading-text">
       {% for p in paragraphs %}<p>{{ p|linebreaksbr }}</p>{% endfor %}
@@ -85,6 +91,7 @@
   .reading .kicker{color:var(--amber);font-size:13px;margin-bottom:6px}
   .source{color:var(--ink-3);font-size:13px;margin-bottom:14px}
   .source a{color:var(--blue)}
+  .source .swap{background:none;border:0;padding:0;font:inherit;color:var(--blue);cursor:pointer;text-decoration:underline}
   .headline{font-family:var(--serif);font-weight:500;font-size:24px;line-height:1.2;margin-bottom:14px}
   .text{font-family:var(--serif);font-size:17px;line-height:1.65}
   .text p{margin-bottom:14px}

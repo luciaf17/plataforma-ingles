@@ -13,6 +13,7 @@ urlpatterns = [
     path("lessons/<int:lesson_id>/listened/", views.listening_listened, name="listening_listened"),
     path("lessons/<int:lesson_id>/listen/", views.listening_submit, name="listening_submit"),
     path("lessons/<int:lesson_id>/read/", views.reading_submit, name="reading_submit"),
+    path("lessons/<int:lesson_id>/another-article/", views.another_article, name="another_article"),
     path("lessons/<int:lesson_id>/vocab/", views.vocab_lookup, name="vocab_lookup"),
     path("lessons/<int:lesson_id>/mini-lesson/", views.mini_lesson_check, name="mini_lesson_check"),
     path("lessons/<int:lesson_id>/checkpoint/<str:step>/", views.checkpoint_step, name="checkpoint_step"),

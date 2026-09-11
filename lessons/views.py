@@ -535,6 +535,38 @@ def reading_runner(request, lesson):
     return render(request, "lessons/reading.html", reading_context(request, lesson))
 
 
+@login_required
+@require_POST
+def another_article(request, lesson_id):
+    """Swap the article of a reading lesson she has not handed in yet.
+
+    Nothing is lost: a reading lesson stores nothing until it is submitted.
+    The rejected article was marked as read when the lesson was planned, so it
+    never comes back. Costs one planner call, same as any other lesson.
+    """
+    lesson = own_lesson(request, lesson_id)
+    if lesson.skill != "reading" or lesson.status in (Lesson.Status.COMPLETED, Lesson.Status.ANALYZED):
+        return redirect("lessons:runner", lesson_id=lesson.id)
+    plan = lesson.plan or {}
+    # `force` refuses to replace a lesson in progress, a guard meant to protect
+    # a conversation halfway through. There is nothing to protect here.
+    lesson.status = Lesson.Status.PLANNED
+    lesson.save(update_fields=["status"])
+    try:
+        replacement, _ = planner.prepare_next_lesson(
+            lesson.learner, on=lesson.scheduled_for, skill="reading", force=True,
+            duration=plan.get("duration_min") or planner.DEFAULT_DURATION,
+        )
+    except (client.AIUnavailable, planner.NothingToPlan) as exc:
+        log.error("could not swap the article on lesson %s: %s", lesson.id, exc)
+        return render(
+            request, "lessons/unavailable.html",
+            {"section": "reading", "title": "Reading", "error": str(exc)}, status=503,
+        )
+    log.info("swapped the article on lesson %s for lesson %s", lesson.id, replacement.id)
+    return redirect("lessons:runner", lesson_id=replacement.id)
+
+
 def grade_questions(task, answers):
     """Multiple choice is graded here, no model involved."""
     rows, score = [], 0

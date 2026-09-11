@@ -6,6 +6,7 @@ from unittest import mock
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from ai import client as ai_client
 from ai import planner, writing
@@ -196,3 +197,48 @@ class ReadingLengthRetryTests(TestCase):
     def test_glossary_terms_drop_the_to_prefix(self):
         task = planner.normalise_reading_task({"text": "x", "questions": [], "glossary": [{"term": "to look forward to", "definition_en": "d", "example": "e"}]})
         self.assertEqual(task["glossary"][0]["term"], "look forward to")
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["reading"])
+class AnotherArticleTests(TestCase):
+    """A boring article can be swapped as long as nothing has been handed in."""
+
+    fixtures = ["seed"]
+
+    def setUp(self):
+        self.user = get_user_model().objects.create_user("lu", password="pw")
+        self.learner = Learner.for_user(self.user)
+        self.client.login(username="lu", password="pw")
+        self.work = Track.objects.get(slug="work")
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=self.work, skill="reading", status="in_progress",
+            scheduled_for=timezone.localdate(), plan=READING_PLAN,
+        )
+        self.url = f"/lessons/{self.lesson.id}/another-article/"
+
+    def swap(self):
+        chat = SimpleNamespace(
+            data={**PLAN, "reading_task": TASK, "mini_lesson_card": None},
+            content="{}", model="m", prompt_tokens=1, completion_tokens=1,
+        )
+        with mock.patch.object(planner.client, "chat_json", return_value=chat):
+            return self.client.post(self.url)
+
+    def test_it_replaces_the_lesson_and_takes_her_to_the_new_one(self):
+        response = self.swap()
+        replacement = Lesson.objects.exclude(id=self.lesson.id).get()
+        self.assertRedirects(response, f"/lessons/{replacement.id}/", target_status_code=200)
+        self.assertEqual(replacement.skill, "reading")
+        self.assertFalse(Lesson.objects.filter(id=self.lesson.id).exists())
+
+    def test_a_finished_lesson_is_not_thrown_away(self):
+        self.lesson.status = "analyzed"
+        self.lesson.save(update_fields=["status"])
+        response = self.client.post(self.url)
+        self.assertEqual(Lesson.objects.count(), 1)
+        self.assertEqual(response.status_code, 302)
+
+    def test_the_button_is_offered_while_the_lesson_is_open(self):
+        html = self.client.get(f"/lessons/{self.lesson.id}/").content.decode()
+        self.assertIn("Read something else", html)
+        self.assertIn(self.url, html)
