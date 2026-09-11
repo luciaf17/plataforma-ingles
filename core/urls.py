@@ -20,4 +20,8 @@ urlpatterns = [
     path("errors/<int:error_id>/status/", views.error_status, name="error_status"),
     path("progress/", views.progress_page, name="progress"),
     path("progress/review/", views.progress_review, name="progress_review"),
+    # Installable app: manifest and service worker at the root, no login needed.
+    path("manifest.webmanifest", views.manifest, name="manifest"),
+    path("sw.js", views.service_worker, name="service_worker"),
+    path("offline/", views.offline, name="offline"),
 ]

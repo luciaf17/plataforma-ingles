@@ -1,9 +1,14 @@
+import hashlib
+import json
 import logging
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.staticfiles.storage import staticfiles_storage
 from django.http import Http404
 from django.shortcuts import redirect, render
+from django.templatetags.static import static
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.static import serve
@@ -453,3 +458,31 @@ def placeholder(request, section):
         raise Http404
     title, subtitle = SECTIONS[section]
     return render(request, "core/placeholder.html", {"section": section, "title": title, "subtitle": subtitle})
+
+
+# --- Installable app (PWA) -------------------------------------------------
+# Bump when offline.html or the service worker logic changes; static file
+# names already carry their own hash in production.
+PWA_VERSION = "1"
+
+
+def manifest(request):
+    return render(request, "core/manifest.webmanifest", content_type="application/manifest+json")
+
+
+def service_worker(request):
+    precache = [reverse("core:offline"), static("css/app.css"), static("js/app.js")]
+    version = PWA_VERSION + "-" + hashlib.sha1("|".join(precache).encode()).hexdigest()[:8]
+    response = render(
+        request, "core/sw.js",
+        {"version": version, "offline_url": precache[0], "precache": json.dumps(precache),
+         "static_url": staticfiles_storage.base_url},
+        content_type="application/javascript",
+    )
+    # Served from the root so it covers every page; browsers re-check it on each load.
+    response["Cache-Control"] = "no-cache"
+    return response
+
+
+def offline(request):
+    return render(request, "core/offline.html")

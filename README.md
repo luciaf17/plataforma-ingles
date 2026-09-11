@@ -75,6 +75,23 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## Install as an app
+
+The site is a progressive web app: `/manifest.webmanifest` and a service
+worker at `/sw.js` (both rendered by Django so the icon URLs follow the
+hashed static files in production). The worker never caches pages, only the
+app's own static files and an offline page; every screen needs the server
+and the AI anyway.
+
+- Android (Chrome/Edge): open the site, menu, "Add to Home screen" / "Install app".
+- iPhone (Safari): share button, "Add to Home Screen". iOS asks for the
+  microphone again on each launch; that is Safari's rule for home-screen apps.
+- Desktop (Chrome/Edge): the install icon at the right end of the address bar.
+
+The icons in `static/icons/` are screenshots of a one-file HTML page (the
+brand mark in Newsreader on the app background); regenerate them the same
+way if the palette changes.
+
 ## Layout
 
 ```

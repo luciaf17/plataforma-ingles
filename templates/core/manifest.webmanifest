@@ -1,0 +1,18 @@
+{% load static %}{
+  "id": "/",
+  "name": "tutor-en",
+  "short_name": "tutor-en",
+  "description": "Your English file: a daily lesson with an AI tutor.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1e27",
+  "theme_color": "#1a1e27",
+  "icons": [
+    {"src": "{% static 'icons/icon-192.png' %}", "sizes": "192x192", "type": "image/png"},
+    {"src": "{% static 'icons/icon-512.png' %}", "sizes": "512x512", "type": "image/png"},
+    {"src": "{% static 'icons/icon-maskable-512.png' %}", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
