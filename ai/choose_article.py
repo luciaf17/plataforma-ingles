@@ -38,6 +38,7 @@ def context(learner, candidates):
 
     return {
         "goal": learner.goal_statement or "technical interviews and daily standups",
+        "about_her": learner.profile or None,
         "cefr_reading": learner.cefr_for("reading"),
         "recent_class_topics": list(
             learner.lessons.exclude(topic=None).order_by("-scheduled_for").values_list("topic__title", flat=True)[:6]

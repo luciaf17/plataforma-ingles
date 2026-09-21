@@ -55,6 +55,7 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
             "cefr_speaking": learner.cefr_for("speaking"),
             "target_level": learner.target_level,
             "goal": learner.goal_statement or "technical interviews and daily standups",
+            "profile": learner.profile or None,
         },
         "plan": {
             "kind": plan.get("kind", "lesson"),
@@ -66,6 +67,7 @@ def build_messages(lesson, *, phase_key, event="turn", elapsed_in_phase_s=0, his
             "targeted_errors": plan.get("targeted_errors", []),
             "vocabulary": plan.get("vocabulary", []),
             "if_stuck_hints": plan.get("if_stuck_hints", []),
+            "coaching": bool(plan.get("coaching")),
             "fluency_retell": plan.get("fluency_retell"),
         },
         "phase": phase_info(plan, phase_key, elapsed_in_phase_s=elapsed_in_phase_s),

@@ -32,6 +32,7 @@ log = logging.getLogger("ai.planner")
 SKILLS = ["speaking", "listening", "reading", "writing"]
 TRACKS = ["work", "general"]
 DEFAULT_DURATION = 20
+REQUEST_MAX = 3000  # a brief, not a sentence; mirrored in core.views
 SPEAKING_PER_WEEK = 3
 MAX_DUE_ERRORS = 8
 MAX_DUE_VOCAB = 10
@@ -201,7 +202,7 @@ def select(learner, *, on=None, skill=None, track=None, topic=None, duration=DEF
         due_errors=list(ErrorItem.objects.due_for(learner, on=on)[:MAX_DUE_ERRORS]),
         due_vocab=list(VocabItem.objects.due_for(learner, on=on)[:MAX_DUE_VOCAB]),
         recent_topics=recent_topic_titles(learner),
-        request=(request or "").strip()[:500],
+        request=(request or "").strip()[:REQUEST_MAX],
         # Reading lessons quote a real article when the pool has one; with an
         # empty pool the planner writes its own text as before.
         article=choose_article.choose(learner, rng=rng) if skill == "reading" else None,
@@ -253,6 +254,7 @@ SPEAKING_PLAN_SCHEMA = {
             },
         },
         "if_stuck_hints": {"type": "array", "items": {"type": "string"}},
+        "coaching": {"type": "boolean"},
         "fluency_retell": {
             "type": "object",
             "properties": {
@@ -263,7 +265,7 @@ SPEAKING_PLAN_SCHEMA = {
             "additionalProperties": False,
         },
     },
-    "required": ["title", "summary", "tutor_role", "phases", "targeted_errors", "vocabulary", "if_stuck_hints", "fluency_retell"],
+    "required": ["title", "summary", "tutor_role", "phases", "targeted_errors", "vocabulary", "if_stuck_hints", "coaching", "fluency_retell"],
     "additionalProperties": False,
 }
 
@@ -582,6 +584,7 @@ def build_context(learner, selection):
         "cefr": learner.cefr_for(selection.skill),
         "target_level": learner.target_level,
         "goal": learner.goal_statement or "technical interviews and daily standups",
+        "about_her": learner.profile or None,
         "topic": {
             "title": selection.topic.title,
             "description": selection.topic.description,
@@ -655,6 +658,8 @@ def normalise_plan(data, learner, selection):
         "vocabulary": data.get("vocabulary", []),
         "due_vocab_ids": [v.id for v in selection.due_vocab],
         "if_stuck_hints": data.get("if_stuck_hints", []),
+        # Explicit feedback after each answer, for interview or talk preparation.
+        "coaching": bool(data.get("coaching")) and selection.skill == "speaking",
         "fluency_retell": normalise_retell(data.get("fluency_retell")) if selection.skill == "speaking" else None,
         "writing_task": data.get("writing_task") if selection.skill == "writing" else None,
         "reading_task": (

@@ -75,6 +75,21 @@ SECURE_SSL_REDIRECT=False
 
 Railway's healthcheck calls the service with the host `healthcheck.railway.app`, so it must be in `ALLOWED_HOSTS` or every deploy fails with HTTP 400; it also calls over plain HTTP, so `SECURE_SSL_REDIRECT=False` on `web` (Railway's edge already redirects HTTP to HTTPS). Static files are served by whitenoise; media is served by Django behind login (single user, small files).
 
+## Who she is, and coaching mode
+
+`Learner.profile` holds who she is professionally, in her own words (set in
+onboarding, up to 3000 characters). Every planner and tutor call carries it as
+`about_her` / `student.profile`, so role plays use her real projects and the
+tutor never pushes her to claim experience the profile says she lacks.
+
+The free-text request on Today takes a brief (3000 characters), not a
+sentence. When she is rehearsing for something real — an interview, a talk —
+the planner sets `coaching` on the plan and the tutor swaps invisible recasts
+for short explicit feedback after each answer: the two or three mistakes that
+hurt clarity, one more natural version of her key sentence, and a push to
+extend a short answer. Freezing or switching to Spanish gets a phrase to
+continue with, not a correction.
+
 ## The mini-lesson card
 
 Classes without a tutor's voice (reading, writing, listening) teach the grammar

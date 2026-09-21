@@ -365,3 +365,43 @@ class FluencyRetellTests(PlannerBase):
         wrap_up = lesson.plan["phases"][-1]
         self.assertEqual(wrap_up["key"], "wrap_up")
         self.assertGreaterEqual(wrap_up["minutes"] * 60, sum(planner.RETELL_ROUNDS))
+
+
+@override_settings(LESSON_SKILLS_ENABLED=["speaking"])
+class CoachingAndProfileTests(PlannerBase):
+    """Rehearsing for something real: the tutor gets who she is and switches to explicit feedback."""
+
+    def prepare(self, coaching=None, request=""):
+        data = fake_plan()
+        if coaching is not None:
+            data["coaching"] = coaching
+        chat = SimpleNamespace(data=data, content="{}", model="gpt-4o-test", prompt_tokens=10, completion_tokens=20)
+        with mock.patch.object(planner.client, "chat_json", return_value=chat) as chat_json:
+            lesson, _ = planner.prepare_next_lesson(self.learner, on=TODAY, rng=random.Random(1), request=request)
+        return lesson, chat_json
+
+    # One lesson per test: prepare_next_lesson is idempotent per day, so a
+    # second call would hand back the first lesson, whatever the model said.
+    def test_coaching_is_stored_when_the_model_switches_it_on(self):
+        self.assertTrue(self.prepare(coaching=True)[0].plan["coaching"])
+
+    def test_coaching_off_is_stored_as_false(self):
+        self.assertFalse(self.prepare(coaching=False)[0].plan["coaching"])
+
+    def test_a_plan_without_the_field_is_not_coaching(self):
+        self.assertFalse(self.prepare()[0].plan["coaching"])
+
+    def test_her_profile_reaches_the_planner(self):
+        self.learner.profile = "Python developer, 5 years, automation with n8n. No fintech experience yet."
+        self.learner.save()
+        _, chat_json = self.prepare()
+        context = chat_json.call_args.args[0][1]["content"]
+        self.assertIn("No fintech experience yet", context)
+        self.assertIn("about_her", chat_json.call_args.args[0][0]["content"])
+
+    def test_a_brief_survives_as_the_request(self):
+        brief = "Tomorrow I have an interview. " * 60  # well past the old 500-character cap
+        lesson, chat_json = self.prepare(request=brief)
+        self.assertEqual(len(lesson.plan["learner_request"]), len(brief.strip()))
+        self.assertLessEqual(len(lesson.plan["learner_request"]), planner.REQUEST_MAX)
+        self.assertIn("Tomorrow I have an interview.", chat_json.call_args.args[0][1]["content"])

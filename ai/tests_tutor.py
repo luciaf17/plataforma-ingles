@@ -120,3 +120,33 @@ class FluencyRetellContextTests(TestCase):
         self.lesson.plan = PLAN
         self.lesson.save()
         self.assertIsNone(self.context()["plan"]["fluency_retell"])
+
+
+class CoachingContextTests(TestCase):
+    fixtures = ["seed"]
+
+    def setUp(self):
+        user = get_user_model().objects.create_user("lu", first_name="Lu")
+        self.learner = Learner.for_user(user)
+        self.learner.profile = "Python developer with her own small company; no fintech experience yet."
+        self.learner.save()
+        self.lesson = Lesson.objects.create(
+            learner=self.learner, track=Track.objects.get(slug="work"), skill="speaking",
+            plan={**PLAN, "coaching": True},
+        )
+
+    def context(self):
+        messages = tutor.build_messages(self.lesson, phase_key="practice", event="turn")
+        return json.loads(messages[1]["content"].split("\n", 1)[1]), messages[0]["content"]
+
+    def test_the_tutor_knows_who_she_is_and_that_it_is_coaching(self):
+        context, system = self.context()
+        self.assertTrue(context["plan"]["coaching"])
+        self.assertIn("no fintech experience yet", context["student"]["profile"])
+        self.assertIn("Coaching mode", system)
+        self.assertIn("never push her to claim more than it says", system)
+
+    def test_a_normal_lesson_is_not_coaching(self):
+        self.lesson.plan = PLAN
+        self.lesson.save()
+        self.assertFalse(self.context()[0]["plan"]["coaching"])

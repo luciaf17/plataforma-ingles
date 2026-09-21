@@ -45,6 +45,9 @@
         <label style="grid-column:1/-1">Why are you learning? <span class="opt">(one or two sentences, in any language; the planner reads this)</span>
           <textarea name="goal_statement" rows="3" maxlength="400" placeholder="Technical interviews and daily standups in English.">{{ form.goal_statement }}</textarea>
         </label>
+        <label style="grid-column:1/-1">About you, for the tutor <span class="opt">(optional: your job, experience, projects, what you do not want to be made to claim; any language)</span>
+          <textarea name="profile" rows="6" maxlength="3000" placeholder="Python developer, 5 years, process automation with n8n and REST APIs. Own company with a partner, clients in Spain and Argentina…">{{ form.profile }}</textarea>
+        </label>
         {% if errors.goal %}<p class="form-error">{{ errors.goal }}</p>{% endif %}
       </div>
     </div>

@@ -29,6 +29,9 @@ class Learner(models.Model):
     placement_done = models.BooleanField(default=False)
     placement_notes = models.TextField(blank=True)
     goal_statement = models.TextField(blank=True, help_text="e.g. technical interviews, daily standups")
+    # Who she is professionally, in her own words: job, experience, projects,
+    # what she must not be made to claim. Read by the planner and the tutor.
+    profile = models.TextField(blank=True, help_text="About you, for the tutor: job, experience, projects")
     native_language = models.CharField(max_length=8, default="es")
     created_at = models.DateTimeField(auto_now_add=True)
 

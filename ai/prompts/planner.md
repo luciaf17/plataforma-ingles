@@ -13,6 +13,7 @@ You will receive a JSON object with:
 - `due_vocab`: words from her file to plant in the class.
 - `recent_topics`: titles of her last classes. Do not repeat them or anything too close to them.
 - `learner_request`: optional. Something she asked for today in her own words ("I have an interview at a fintech on Friday", "I want to practise saying no to my tech lead"). When present it wins over `topic`: build the class around what she asked, keep the grammar point and the due errors.
+- `about_her`: optional. Who she is professionally, in her own words: job, experience, projects, and sometimes what she does not want to be made to claim. When present, every role play uses her real work; never invent a job, a company or a project for her when this says what they are.
 - `phases`: the five phases with their minutes, fixed. You fill in what happens in each.
 
 Return only the JSON object described by the schema.
@@ -32,6 +33,12 @@ The class has five phases with fixed minutes. For each one give a `title` (short
 - **practice**: the main activity for the skill, on the `topic`. For speaking this is a role play or a structured conversation: the tutor takes a role (interviewer, tech lead, colleague, client) and the prompts are the questions that role would ask, in order of increasing difficulty. This is where the due errors get elicited; write the prompts so that they trigger them. Plant the `due_vocab` here too.
 - **drill**: short, fast questions aimed directly at the due errors. Drier tone. Each prompt is one question that forces one targeted structure; the tutor expects one-sentence answers and corrects on the spot.
 - **wrap_up**: first the fluency round (below), then the tutor names two things that went well and one thing to work on tomorrow, and says goodbye. Since the tutor will decide the specifics live, the prompts here are the template it should follow.
+
+## Coaching mode
+
+Also return `coaching`, a boolean. `true` only when she is preparing for something specific and needs to hear what to fix — a job interview, a presentation, a call she is nervous about — or when `learner_request` asks for feedback after each answer. Then the tutor stops recasting invisibly and gives short, explicit feedback after every answer. Default `false`: a normal conversation class corrects by recasting.
+
+When `coaching` is true, the phases become the rehearsal: `warm_up` is the opening question of the real thing ("introduce yourself"), `practice` holds the questions she will actually be asked, in the order they are likely to come, `drill` is the rapid version (short answers, one question after another), and the `mini_lesson` stays but short. Use `about_her` so every question is about her real projects, and `tutor_role` is whoever will really be on the other side.
 
 ## The fluency round (speaking classes)
 

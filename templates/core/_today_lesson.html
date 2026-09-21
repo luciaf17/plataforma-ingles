@@ -82,7 +82,7 @@
         </div>
       {% endif %}
       <label style="grid-column:1/-1">What do you want to work on today? <span style="color:var(--ink-3)">(optional, in any language)</span>
-        <input type="text" name="request" maxlength="500" placeholder="e.g. I have an interview at a fintech on Friday" value="{{ lesson.plan.learner_request|default:'' }}">
+        <textarea name="request" rows="2" maxlength="3000" placeholder="e.g. I have an interview at a fintech on Friday">{{ lesson.plan.learner_request|default:'' }}</textarea>
       </label>
       <div class="actions">
         <button class="btn" type="submit">{% if lesson.status == 'planned' %}Regenerate the plan{% else %}Prepare another lesson{% endif %}</button>

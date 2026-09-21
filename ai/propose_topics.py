@@ -72,6 +72,7 @@ def context(learner):
     ]
     return {
         "goal": learner.goal_statement or "technical interviews and daily standups",
+        "about_her": learner.profile or None,
         "cefr_speaking": learner.cefr_for("speaking"),
         "target_level": learner.target_level,
         "she_asked_for": [r for r in requests if r][:6],

@@ -101,3 +101,21 @@ class OnboardingTests(TestCase):
         html = self.client.get(f"/lessons/{lesson.id}/report/").content.decode()
         self.assertIn("Speaking", html)
         self.assertNotIn(">Listening</h3>", html)
+
+
+class ProfileTests(TestCase):
+    fixtures = ["seed"]
+
+    def test_the_profile_is_saved_from_the_form(self):
+        user = get_user_model().objects.create_user("lu", password="pw")
+        self.client.login(username="lu", password="pw")
+        response = self.client.post("/onboarding/", {
+            "target_level": "B2", "goal_statement": "interviews", "first_name": "Lu",
+            "cefr_listening": "", "cefr_reading": "", "placement_notes": "",
+            "profile": "Python developer, 5 years. " + "x" * 5000,
+        })
+        self.assertEqual(response.status_code, 302)
+        learner = Learner.for_user(user)
+        self.assertTrue(learner.profile.startswith("Python developer, 5 years."))
+        self.assertEqual(len(learner.profile), 3000)
+        self.assertContains(self.client.get("/onboarding/"), "Python developer, 5 years.")

@@ -27,6 +27,10 @@ SECTIONS = {
 }
 
 PICKER_DURATIONS = [10, 15, 20, 30]
+# Long enough for a real brief (a job description, a list of projects), short
+# enough to stay a cheap part of every planner and tutor prompt.
+PROFILE_MAX = 3000
+REQUEST_MAX = 3000
 
 
 def todays_lesson(learner, today):
@@ -100,6 +104,7 @@ def onboarding(request):
         "first_name": request.user.first_name,
         "target_level": learner.target_level,
         "goal_statement": learner.goal_statement,
+        "profile": learner.profile,
     }
     errors = {}
     if request.method == "POST":
@@ -116,6 +121,7 @@ def onboarding(request):
             learner.placement_notes = form["placement_notes"][:300]
             learner.target_level = form["target_level"]
             learner.goal_statement = form["goal_statement"][:400]
+            learner.profile = form["profile"][:PROFILE_MAX]
             learner.save()
             if form["first_name"]:
                 request.user.first_name = form["first_name"][:40]
@@ -173,7 +179,7 @@ def prepare_today(request):
     track = request.POST.get("track") or None
     duration = int(request.POST.get("duration") or planner.DEFAULT_DURATION)
     topic = request.POST.get("topic") or None
-    request_text = (request.POST.get("request") or "").strip()[:500]
+    request_text = (request.POST.get("request") or "").strip()[:REQUEST_MAX]
     if request.POST.get("surprise"):
         skill, track, topic, duration, request_text = None, None, None, planner.DEFAULT_DURATION, ""
     if skill and skill not in settings.LESSON_SKILLS_ENABLED:
